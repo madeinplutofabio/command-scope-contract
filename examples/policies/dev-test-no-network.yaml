@@ -1,0 +1,35 @@
+name: dev-test-no-network
+allow_commands:
+  - git
+  - npm
+  - node
+  - python3
+  - pytest
+  - make
+  - cat
+  - jq
+
+deny_argv_prefixes:
+  - ["bash", "-lc"]
+  - ["sh", "-c"]
+  - ["python3", "-c"]
+  - ["node", "-e"]
+
+allowed_effect_types:
+  - observe
+  - transform_local
+  - mutate_repo
+
+allowed_risk_classes:
+  - low
+  - medium
+
+max_timeout_sec: 600
+network: deny
+allow_secret_refs: false
+allowed_cwd_prefixes:
+  - /workspace
+allowed_read_prefixes:
+  - /workspace
+allowed_write_prefixes:
+  - /workspace

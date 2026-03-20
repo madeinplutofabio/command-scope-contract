@@ -1,0 +1,39 @@
+name: regulated-restricted
+allow_commands:
+  - python3
+  - cat
+  - jq
+  - curl
+
+deny_argv_prefixes:
+  - ["bash", "-lc"]
+  - ["sh", "-c"]
+  - ["python3", "-c"]
+  - ["node", "-e"]
+
+allowed_effect_types:
+  - observe
+  - fetch_external
+
+manual_approval_for_classified_effect_types:
+  - financial_action
+  - health_data_action
+  - touch_customer_data
+  - touch_secrets_sensitive
+
+allowed_risk_classes:
+  - low
+  - medium
+
+max_timeout_sec: 60
+network: allowlisted
+allow_secret_refs: false
+allowed_cwd_prefixes:
+  - /workspace
+allowed_read_prefixes:
+  - /workspace
+allowed_write_prefixes:
+  - /workspace/out
+allowed_egress_hosts:
+  - api.sandbox.stripe.com
+  - example-internal-gateway.local

@@ -1,0 +1,26 @@
+# RFC Index
+#
+# This file tracks all CSC RFCs and their artifact integrity metadata.
+# See rfcs/RFC_PROCESS.md for the lifecycle and hashing rules.
+#
+# Schema:
+#   - id: RFC-NNNN
+#     title: <string>
+#     status: draft | review | accepted | final | superseded | rejected
+#     path: rfcs/NNNN-short-title.md
+#     authors:
+#       - <string>
+#     created: YYYY-MM-DD
+#     sha256: <hex string, populated at accepted/final>
+#     doi: <string, populated for milestone RFCs>
+
+rfcs:
+  - id: RFC-0001
+    title: CSC Core Protocol
+    status: draft
+    path: rfcs/0001-csc-core.md
+    authors:
+      - Fabio Marcello Salvadori
+    created: 2026-03-19
+    sha256: null
+    doi: null

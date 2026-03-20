@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "csc-runner"
+version = "0.1.0"
+description = "Reference runner for Command Scope Contract"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+classifiers = [
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+keywords = ["ai-agents", "cli", "provenance", "policy", "security"]
+dependencies = [
+  "pydantic>=2.8",
+  "pyyaml>=6.0.2",
+  "jsonschema>=4.23",
+  "typer>=0.12",
+  "rich>=13.7",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-timeout>=2.3",
+  "ruff>=0.4",
+]
+
+[project.scripts]
+csc = "csc_runner.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/madeinplutofabio/command-scope-contract"
+Repository = "https://github.com/madeinplutofabio/command-scope-contract"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+timeout = 30

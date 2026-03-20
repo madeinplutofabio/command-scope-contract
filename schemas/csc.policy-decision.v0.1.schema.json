@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schemas/csc.policy-decision.v0.1.schema.json",
+  "title": "CSC PolicyDecision v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_id", "decision", "policy_profile", "reasons", "expires_at"],
+  "properties": {
+    "contract_id": { "type": "string", "minLength": 1 },
+    "contract_sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+    "decision": { "type": "string", "enum": ["allow", "deny", "needs_approval"] },
+    "policy_profile": { "type": "string", "minLength": 1 },
+    "classified_effects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command_id", "effect_type"],
+        "properties": {
+          "command_id": { "type": "string", "minLength": 1 },
+          "effect_type": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "reasons": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "expires_at": { "type": "string", "format": "date-time" }
+  }
+}

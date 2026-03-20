@@ -1,0 +1,31 @@
+name: dev-readonly
+allow_commands:
+  - git
+  - ls
+  - cat
+  - grep
+  - rg
+  - find
+  - jq
+  - python3
+
+deny_argv_prefixes:
+  - ["bash", "-lc"]
+  - ["sh", "-c"]
+  - ["python3", "-c"]
+  - ["node", "-e"]
+
+allowed_effect_types:
+  - observe
+
+allowed_risk_classes:
+  - low
+
+max_timeout_sec: 30
+network: deny
+allow_secret_refs: false
+require_write_paths_empty: true
+allowed_cwd_prefixes:
+  - /workspace
+allowed_read_prefixes:
+  - /workspace
