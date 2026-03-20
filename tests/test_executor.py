@@ -177,3 +177,34 @@ def test_file_not_found_receipt():
     assert receipt["status"] == "failed"
     assert receipt["exit_code"] == 127
     assert receipt["failed_command_id"] == "cmd_1"
+
+
+def test_receipt_provenance_success():
+    cmd = _make_exec_command([PYTHON, "-c", "print('ok')"])
+    contract = _make_contract([cmd])
+    receipt = run_contract(contract, "test-policy")
+    assert receipt["receipt_version"] == "csc.receipt.v0.1"
+    assert receipt["runner_version"] is not None
+    assert receipt["execution_mode"] == "local"
+
+
+def test_receipt_provenance_failed():
+    cmd = _make_exec_command([PYTHON, "-c", "import sys; sys.exit(1)"])
+    contract = _make_contract([cmd])
+    receipt = run_contract(contract, "test-policy")
+    assert receipt["receipt_version"] == "csc.receipt.v0.1"
+    assert receipt["runner_version"] is not None
+    assert receipt["execution_mode"] == "local"
+
+
+@pytest.mark.timeout(10)
+def test_receipt_provenance_timeout():
+    cmd = _make_exec_command(
+        [PYTHON, "-c", "import time; time.sleep(30)"],
+        timeout_sec=1,
+    )
+    contract = _make_contract([cmd])
+    receipt = run_contract(contract, "test-policy")
+    assert receipt["receipt_version"] == "csc.receipt.v0.1"
+    assert receipt["runner_version"] is not None
+    assert receipt["execution_mode"] == "local"

@@ -15,6 +15,7 @@ EffectType = Literal[
 ]
 RiskClass = Literal["low", "medium", "high", "critical"]
 ApprovalMode = Literal["policy_only", "human_required", "dual_control_required"]
+ExecutionMode = Literal["local", "hardened"]
 
 
 class StrictBaseModel(BaseModel):

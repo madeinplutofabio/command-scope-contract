@@ -24,3 +24,13 @@ rfcs:
     created: 2026-03-19
     sha256: null
     doi: null
+
+  - id: RFC-0002
+    title: PIC Alignment and Mapping
+    status: draft
+    path: rfcs/0002-pic-alignment.md
+    authors:
+      - Fabio
+    created: 2026-03-20
+    sha256: null
+    doi: null

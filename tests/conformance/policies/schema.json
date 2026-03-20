@@ -1,0 +1,187 @@
+[
+  {
+    "id": "policy-schema-valid-minimal-001",
+    "description": "minimal valid policy with all required fields",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "input": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "minimal-valid",
+      "allow_commands": ["git"],
+      "allowed_effect_types": ["observe"],
+      "allowed_risk_classes": ["low"],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": ["/workspace"],
+      "allowed_read_prefixes": ["/workspace"]
+    },
+    "valid": true
+  },
+  {
+    "id": "policy-schema-valid-full-fields-002",
+    "description": "valid policy using all optional fields",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "input": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "full-fields",
+      "allow_commands": ["git", "python3", "curl"],
+      "deny_argv_prefixes": [["python3", "-c"], ["bash", "-lc"]],
+      "allowed_effect_types": ["observe", "fetch_external", "transform_local"],
+      "manual_approval_for_classified_effect_types": ["financial_action"],
+      "allowed_risk_classes": ["low", "medium"],
+      "max_timeout_sec": 600,
+      "network": "allowlisted",
+      "allow_secret_refs": false,
+      "require_write_paths_empty": false,
+      "allowed_cwd_prefixes": ["/workspace"],
+      "allowed_read_prefixes": ["/workspace"],
+      "allowed_write_prefixes": ["/workspace/out"],
+      "allowed_egress_hosts": ["api.sandbox.stripe.com"]
+    },
+    "valid": true
+  },
+  {
+    "id": "policy-schema-invalid-missing-version-003",
+    "description": "policy missing required policy_schema_version",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "input": {
+      "name": "no-version",
+      "allow_commands": ["git"],
+      "allowed_effect_types": ["observe"],
+      "allowed_risk_classes": ["low"],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": ["/workspace"],
+      "allowed_read_prefixes": ["/workspace"]
+    },
+    "valid": false
+  },
+  {
+    "id": "policy-schema-invalid-wrong-version-004",
+    "description": "policy with wrong schema version rejected by const",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "input": {
+      "policy_schema_version": "csc.policy.v9.9",
+      "name": "wrong-version",
+      "allow_commands": ["git"],
+      "allowed_effect_types": ["observe"],
+      "allowed_risk_classes": ["low"],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": ["/workspace"],
+      "allowed_read_prefixes": ["/workspace"]
+    },
+    "valid": false
+  },
+  {
+    "id": "policy-schema-invalid-unknown-field-005",
+    "description": "unknown field rejected by additionalProperties: false",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "input": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "has-extra",
+      "allow_commands": ["git"],
+      "allowed_effect_types": ["observe"],
+      "allowed_risk_classes": ["low"],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": ["/workspace"],
+      "allowed_read_prefixes": ["/workspace"],
+      "totally_bogus_field": true
+    },
+    "valid": false
+  },
+  {
+    "id": "policy-schema-invalid-empty-commands-006",
+    "description": "empty allow_commands rejected (minItems: 1)",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "input": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "empty-commands",
+      "allow_commands": [],
+      "allowed_effect_types": ["observe"],
+      "allowed_risk_classes": ["low"],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": ["/workspace"],
+      "allowed_read_prefixes": ["/workspace"]
+    },
+    "valid": false
+  },
+  {
+    "id": "policy-schema-invalid-relative-prefix-007",
+    "description": "relative cwd prefix rejected by absolutePath pattern",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "input": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "relative-prefix",
+      "allow_commands": ["git"],
+      "allowed_effect_types": ["observe"],
+      "allowed_risk_classes": ["low"],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": ["relative/path"],
+      "allowed_read_prefixes": ["/workspace"]
+    },
+    "valid": false
+  },
+  {
+    "id": "policy-schema-invalid-bad-network-008",
+    "description": "unknown network mode rejected by enum",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "input": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "bad-network",
+      "allow_commands": ["git"],
+      "allowed_effect_types": ["observe"],
+      "allowed_risk_classes": ["low"],
+      "max_timeout_sec": 30,
+      "network": "yolo",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": ["/workspace"],
+      "allowed_read_prefixes": ["/workspace"]
+    },
+    "valid": false
+  },
+  {
+    "id": "policy-schema-invalid-bad-effect-type-009",
+    "description": "unknown effect type rejected by enum",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "input": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "bad-effect",
+      "allow_commands": ["git"],
+      "allowed_effect_types": ["nuke_from_orbit"],
+      "allowed_risk_classes": ["low"],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": ["/workspace"],
+      "allowed_read_prefixes": ["/workspace"]
+    },
+    "valid": false
+  },
+  {
+    "id": "policy-schema-invalid-bad-risk-class-010",
+    "description": "unknown risk class rejected by enum",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "input": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "bad-risk",
+      "allow_commands": ["git"],
+      "allowed_effect_types": ["observe"],
+      "allowed_risk_classes": ["extreme"],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": ["/workspace"],
+      "allowed_read_prefixes": ["/workspace"]
+    },
+    "valid": false
+  }
+]

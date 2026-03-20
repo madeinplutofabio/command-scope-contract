@@ -1,0 +1,331 @@
+[
+  {
+    "id": "contract-invalid-missing-version-001",
+    "description": "contract missing required version field",
+    "spec_refs": ["spec:5.1", "schema:csc.contract.v0.1"],
+    "input": {
+      "contract_id": "contract-missing-version-001",
+      "intent": "test",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {"argv": ["git", "status"]},
+          "cwd": "/workspace",
+          "read_paths": [],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "valid": false
+  },
+  {
+    "id": "contract-invalid-missing-actor-002",
+    "description": "contract missing required actor field",
+    "spec_refs": ["spec:5.1", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-missing-actor-002",
+      "intent": "test",
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {"argv": ["git", "status"]},
+          "cwd": "/workspace",
+          "read_paths": [],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "valid": false
+  },
+  {
+    "id": "contract-invalid-both-exec-and-pipeline-003",
+    "description": "command has both exec and pipeline — must have exactly one",
+    "spec_refs": ["spec:5.3", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-both-exec-pipeline-003",
+      "intent": "test",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {"argv": ["git", "status"]},
+          "pipeline": {"segments": [{"argv": ["cat", "file.txt"]}, {"argv": ["grep", "pattern"]}]},
+          "cwd": "/workspace",
+          "read_paths": [],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "valid": false
+  },
+  {
+    "id": "contract-invalid-relative-cwd-004",
+    "description": "relative cwd rejected by schema",
+    "spec_refs": ["spec:5.4", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-relative-cwd-004",
+      "intent": "test",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {"argv": ["git", "status"]},
+          "cwd": "relative/path",
+          "read_paths": [],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "valid": false
+  },
+  {
+    "id": "contract-invalid-bad-risk-class-005",
+    "description": "unknown risk class rejected",
+    "spec_refs": ["spec:5.5", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-bad-risk-005",
+      "intent": "test",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {"argv": ["git", "status"]},
+          "cwd": "/workspace",
+          "read_paths": [],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "extreme",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "valid": false
+  },
+  {
+    "id": "contract-invalid-bad-effect-type-006",
+    "description": "unknown proposed_effect_type rejected",
+    "spec_refs": ["spec:5.4", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-bad-effect-006",
+      "intent": "test",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {"argv": ["git", "status"]},
+          "cwd": "/workspace",
+          "read_paths": [],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "nuke_from_orbit"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "valid": false
+  },
+  {
+    "id": "contract-invalid-bad-network-007",
+    "description": "unknown network mode rejected",
+    "spec_refs": ["spec:5.4", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-bad-network-007",
+      "intent": "test",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {"argv": ["git", "status"]},
+          "cwd": "/workspace",
+          "read_paths": [],
+          "write_paths": [],
+          "network": "yolo",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "valid": false
+  },
+  {
+    "id": "contract-invalid-empty-commands-008",
+    "description": "empty commands array rejected (minItems: 1)",
+    "spec_refs": ["spec:5.1", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-empty-commands-008",
+      "intent": "test",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "test"
+      },
+      "commands": [],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "valid": false
+  },
+  {
+    "id": "contract-invalid-too-many-commands-009",
+    "description": "more than 20 commands rejected (maxItems: 20)",
+    "spec_refs": ["spec:5.1", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-too-many-commands-009",
+      "intent": "test",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {"id": "cmd_01", "exec": {"argv": ["echo", "1"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_02", "exec": {"argv": ["echo", "2"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_03", "exec": {"argv": ["echo", "3"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_04", "exec": {"argv": ["echo", "4"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_05", "exec": {"argv": ["echo", "5"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_06", "exec": {"argv": ["echo", "6"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_07", "exec": {"argv": ["echo", "7"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_08", "exec": {"argv": ["echo", "8"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_09", "exec": {"argv": ["echo", "9"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_10", "exec": {"argv": ["echo", "10"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_11", "exec": {"argv": ["echo", "11"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_12", "exec": {"argv": ["echo", "12"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_13", "exec": {"argv": ["echo", "13"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_14", "exec": {"argv": ["echo", "14"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_15", "exec": {"argv": ["echo", "15"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_16", "exec": {"argv": ["echo", "16"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_17", "exec": {"argv": ["echo", "17"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_18", "exec": {"argv": ["echo", "18"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_19", "exec": {"argv": ["echo", "19"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_20", "exec": {"argv": ["echo", "20"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"},
+        {"id": "cmd_21", "exec": {"argv": ["echo", "21"]}, "cwd": "/workspace", "read_paths": [], "write_paths": [], "network": "deny", "env_allow": [], "secret_refs": [], "timeout_sec": 1, "proposed_effect_type": "observe"}
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "valid": false
+  },
+  {
+    "id": "contract-invalid-neither-exec-nor-pipeline-010",
+    "description": "command with neither exec nor pipeline rejected",
+    "spec_refs": ["spec:5.3", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-no-exec-no-pipe-010",
+      "intent": "test",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "cwd": "/workspace",
+          "read_paths": [],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "valid": false
+  }
+]

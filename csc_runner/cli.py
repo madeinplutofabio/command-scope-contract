@@ -8,7 +8,7 @@ import typer
 from pydantic import ValidationError
 from rich import print
 
-from csc_runner.executor import run_contract
+from csc_runner.executor import RECEIPT_VERSION, run_contract, runner_version
 from csc_runner.models import CommandContract
 from csc_runner.policy import PolicyError, evaluate_contract, load_policy
 from csc_runner.receipts import write_receipt
@@ -78,6 +78,7 @@ def run(
         print(f"[red]DENY[/red] — {message}")
         write_receipt(
             {
+                "receipt_version": RECEIPT_VERSION,
                 "contract_id": contract.contract_id,
                 "execution_id": f"exec_{contract.contract_id}",
                 "contract_sha256": decision.contract_sha256,
@@ -85,6 +86,8 @@ def run(
                 "started_at": now,
                 "ended_at": now,
                 "policy_profile": decision.policy_profile,
+                "runner_version": runner_version(),
+                "execution_mode": "local",
                 "completed_command_ids": [],
                 "failed_command_id": None,
                 "error": message,

@@ -1,0 +1,46 @@
+[
+  {
+    "id": "policy-loader-valid-minimal-001",
+    "description": "valid minimal policy loads successfully",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "raw_text": "policy_schema_version: csc.policy.v0.1\nname: loader-valid\nallow_commands: [git]\nallowed_effect_types: [observe]\nallowed_risk_classes: [low]\nmax_timeout_sec: 30\nnetwork: deny\nallow_secret_refs: false\nallowed_cwd_prefixes: [/workspace]\nallowed_read_prefixes: [/workspace]\n",
+    "format": "yaml",
+    "valid": true
+  },
+  {
+    "id": "policy-loader-duplicate-key-002",
+    "description": "duplicate YAML key rejected before schema validation",
+    "spec_refs": ["docs:canonicalization", "schema:csc.policy.v0.1"],
+    "raw_text": "policy_schema_version: csc.policy.v0.1\nname: dup\nname: dup-again\nallow_commands: [git]\nallowed_effect_types: [observe]\nallowed_risk_classes: [low]\nmax_timeout_sec: 30\nnetwork: deny\nallow_secret_refs: false\nallowed_cwd_prefixes: [/workspace]\nallowed_read_prefixes: [/workspace]\n",
+    "format": "yaml",
+    "valid": false,
+    "expected_error_contains": "duplicate key"
+  },
+  {
+    "id": "policy-loader-invalid-yaml-003",
+    "description": "malformed YAML rejected at parse time",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "raw_text": "foo: [1, 2\n",
+    "format": "yaml",
+    "valid": false,
+    "expected_error_contains": "invalid YAML"
+  },
+  {
+    "id": "policy-loader-non-mapping-004",
+    "description": "YAML document that is not a mapping rejected",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "raw_text": "- just\n- a\n- list\n",
+    "format": "yaml",
+    "valid": false,
+    "expected_error_contains": "must contain a YAML mapping"
+  },
+  {
+    "id": "policy-loader-nonexistent-file-005",
+    "description": "nonexistent file raises load error",
+    "spec_refs": ["schema:csc.policy.v0.1"],
+    "source": "missing_file",
+    "format": "yaml",
+    "valid": false,
+    "expected_error_contains": "failed to read"
+  }
+]

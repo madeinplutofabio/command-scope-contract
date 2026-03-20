@@ -5,10 +5,20 @@ import os
 import subprocess
 import time
 from datetime import UTC, datetime
+from importlib.metadata import version as pkg_version
 from typing import Any
 
 from csc_runner.models import CommandContract
 from csc_runner.utils import hash_contract
+
+RECEIPT_VERSION = "csc.receipt.v0.1"
+
+
+def runner_version() -> str:
+    try:
+        return pkg_version("csc-runner")
+    except Exception:
+        return "unknown"
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -78,6 +88,20 @@ def _run_pipeline(
     return last_result
 
 
+def _base_receipt(contract: CommandContract, policy_profile: str, start: str) -> dict[str, Any]:
+    """Return the fields shared by every receipt."""
+    return {
+        "receipt_version": RECEIPT_VERSION,
+        "contract_id": contract.contract_id,
+        "execution_id": f"exec_{contract.contract_id}",
+        "contract_sha256": hash_contract(contract),
+        "policy_profile": policy_profile,
+        "runner_version": runner_version(),
+        "execution_mode": "local",
+        "started_at": start,
+    }
+
+
 def run_contract(contract: CommandContract, policy_profile: str) -> dict[str, Any]:
     start = _iso_now()
     last_result: subprocess.CompletedProcess[bytes] | None = None
@@ -118,28 +142,26 @@ def run_contract(contract: CommandContract, policy_profile: str) -> dict[str, An
         )
         stdout = exc.stdout if isinstance(exc.stdout, bytes) else b""
         stderr = exc.stderr if isinstance(exc.stderr, bytes) else b""
-        end = _iso_now()
-        return {
-            "contract_id": contract.contract_id,
-            "execution_id": f"exec_{contract.contract_id}",
-            "contract_sha256": hash_contract(contract),
-            "status": "failed",
-            "started_at": start,
-            "ended_at": end,
-            "exit_code": 124,
-            "stdout_hash": _sha256_bytes(stdout),
-            "stderr_hash": _sha256_bytes(stderr),
-            "artifacts": [],
-            "policy_profile": policy_profile,
-            "effect_summary": {
-                "files_written": 0,
-                "network_used": any(cmd.network != "deny" for cmd in contract.commands),
-                "secrets_used": sum(len(cmd.secret_refs) for cmd in contract.commands),
-            },
-            "completed_command_ids": completed_command_ids,
-            "failed_command_id": failed_command_id,
-            "error": f"command timed out after {exc.timeout} seconds",
-        }
+        receipt = _base_receipt(contract, policy_profile, start)
+        receipt.update(
+            {
+                "status": "failed",
+                "ended_at": _iso_now(),
+                "exit_code": 124,
+                "stdout_hash": _sha256_bytes(stdout),
+                "stderr_hash": _sha256_bytes(stderr),
+                "artifacts": [],
+                "effect_summary": {
+                    "files_written": 0,
+                    "network_used": any(cmd.network != "deny" for cmd in contract.commands),
+                    "secrets_used": sum(len(cmd.secret_refs) for cmd in contract.commands),
+                },
+                "completed_command_ids": completed_command_ids,
+                "failed_command_id": failed_command_id,
+                "error": f"command timed out after {exc.timeout} seconds",
+            }
+        )
+        return receipt
 
     except FileNotFoundError as exc:
         failed_command_id = failed_command_id or (
@@ -147,28 +169,26 @@ def run_contract(contract: CommandContract, policy_profile: str) -> dict[str, An
             if len(completed_command_ids) < len(contract.commands)
             else None
         )
-        end = _iso_now()
-        return {
-            "contract_id": contract.contract_id,
-            "execution_id": f"exec_{contract.contract_id}",
-            "contract_sha256": hash_contract(contract),
-            "status": "failed",
-            "started_at": start,
-            "ended_at": end,
-            "exit_code": 127,
-            "stdout_hash": _sha256_bytes(b""),
-            "stderr_hash": _sha256_bytes(str(exc).encode("utf-8")),
-            "artifacts": [],
-            "policy_profile": policy_profile,
-            "effect_summary": {
-                "files_written": 0,
-                "network_used": any(cmd.network != "deny" for cmd in contract.commands),
-                "secrets_used": sum(len(cmd.secret_refs) for cmd in contract.commands),
-            },
-            "completed_command_ids": completed_command_ids,
-            "failed_command_id": failed_command_id,
-            "error": str(exc),
-        }
+        receipt = _base_receipt(contract, policy_profile, start)
+        receipt.update(
+            {
+                "status": "failed",
+                "ended_at": _iso_now(),
+                "exit_code": 127,
+                "stdout_hash": _sha256_bytes(b""),
+                "stderr_hash": _sha256_bytes(str(exc).encode("utf-8")),
+                "artifacts": [],
+                "effect_summary": {
+                    "files_written": 0,
+                    "network_used": any(cmd.network != "deny" for cmd in contract.commands),
+                    "secrets_used": sum(len(cmd.secret_refs) for cmd in contract.commands),
+                },
+                "completed_command_ids": completed_command_ids,
+                "failed_command_id": failed_command_id,
+                "error": str(exc),
+            }
+        )
+        return receipt
 
     end = _iso_now()
 
@@ -177,24 +197,23 @@ def run_contract(contract: CommandContract, policy_profile: str) -> dict[str, An
     exit_code = last_result.returncode if last_result else 1
     status = "success" if exit_code == 0 else "failed"
 
-    return {
-        "contract_id": contract.contract_id,
-        "execution_id": f"exec_{contract.contract_id}",
-        "contract_sha256": hash_contract(contract),
-        "status": status,
-        "started_at": start,
-        "ended_at": end,
-        "exit_code": exit_code,
-        "stdout_hash": _sha256_bytes(stdout),
-        "stderr_hash": _sha256_bytes(stderr),
-        "artifacts": [],
-        "policy_profile": policy_profile,
-        "effect_summary": {
-            "files_written": 0,
-            "network_used": any(cmd.network != "deny" for cmd in contract.commands),
-            "secrets_used": sum(len(cmd.secret_refs) for cmd in contract.commands),
-        },
-        "completed_command_ids": completed_command_ids,
-        "failed_command_id": failed_command_id,
-        "error": stderr.decode("utf-8", errors="replace")[:4000] if exit_code != 0 else "",
-    }
+    receipt = _base_receipt(contract, policy_profile, start)
+    receipt.update(
+        {
+            "status": status,
+            "ended_at": end,
+            "exit_code": exit_code,
+            "stdout_hash": _sha256_bytes(stdout),
+            "stderr_hash": _sha256_bytes(stderr),
+            "artifacts": [],
+            "effect_summary": {
+                "files_written": 0,
+                "network_used": any(cmd.network != "deny" for cmd in contract.commands),
+                "secrets_used": sum(len(cmd.secret_refs) for cmd in contract.commands),
+            },
+            "completed_command_ids": completed_command_ids,
+            "failed_command_id": failed_command_id,
+            "error": stderr.decode("utf-8", errors="replace")[:4000] if exit_code != 0 else "",
+        }
+    )
+    return receipt

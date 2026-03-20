@@ -144,6 +144,7 @@ def _write_run_test_files(tmp_path):
     }
 
     policy = {
+        "policy_schema_version": "csc.policy.v0.1",
         "name": "test-permissive",
         "allow_commands": [python_name, sys.executable],
         "allowed_effect_types": ["observe"],
@@ -257,3 +258,23 @@ def test_check_missing_file_exit_1():
     )
     assert result.exit_code == 1
     assert "ERROR" in result.output
+
+
+def test_blocked_receipt_provenance(tmp_path):
+    receipt_path = tmp_path / "receipt.json"
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            str(CONTRACTS_DIR / "curl-denied.json"),
+            str(POLICIES_DIR / "dev-readonly.yaml"),
+            "--receipt-out",
+            str(receipt_path),
+        ],
+    )
+    assert result.exit_code == 1
+    assert receipt_path.exists()
+    receipt = json.loads(receipt_path.read_text())
+    assert receipt["receipt_version"] == "csc.receipt.v0.1"
+    assert receipt["runner_version"] is not None
+    assert receipt["execution_mode"] == "local"

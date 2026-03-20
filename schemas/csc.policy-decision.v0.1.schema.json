@@ -4,7 +4,7 @@
   "title": "CSC PolicyDecision v0.1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["contract_id", "decision", "policy_profile", "reasons", "expires_at"],
+  "required": ["contract_id", "decision", "policy_profile", "reasons", "reason_codes", "expires_at"],
   "properties": {
     "contract_id": { "type": "string", "minLength": 1 },
     "contract_sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
@@ -26,6 +26,13 @@
       "type": "array",
       "minItems": 1,
       "items": { "type": "string", "minLength": 1 }
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Machine-readable reason codes drawn from the registry defined in docs/reason-codes.md. Stable API surface."
     },
     "expires_at": { "type": "string", "format": "date-time" }
   }
