@@ -8,7 +8,6 @@ import yaml
 from csc_runner.models import CommandContract
 from csc_runner.utils import hash_contract
 
-
 NETWORK_RANK = {"deny": 0, "allowlisted": 1, "full": 2}
 
 
