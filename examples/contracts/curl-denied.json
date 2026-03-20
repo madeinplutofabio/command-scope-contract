@@ -1,0 +1,31 @@
+{
+  "version": "csc.v0.1",
+  "contract_id": "contract_curl_denied_001",
+  "intent": "post data to external endpoint",
+  "actor": {
+    "agent_id": "worker-1",
+    "session_id": "sess-003",
+    "initiating_user": "fabio",
+    "delegation_scope": "repo-maintainer"
+  },
+  "commands": [
+    {
+      "id": "cmd_1",
+      "exec": {
+        "argv": ["curl", "-X", "POST", "https://example.com/hook"]
+      },
+      "cwd": "/workspace/app",
+      "read_paths": ["/workspace/app/**"],
+      "write_paths": [],
+      "network": "full",
+      "env_allow": [],
+      "secret_refs": [],
+      "timeout_sec": 30,
+      "proposed_effect_type": "fetch_external"
+    }
+  ],
+  "risk_class": "high",
+  "approval_mode": "policy_only",
+  "expected_outputs": [],
+  "justification": "notify webhook"
+}

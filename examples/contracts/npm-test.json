@@ -1,0 +1,31 @@
+{
+  "version": "csc.v0.1",
+  "contract_id": "contract_npm_test_001",
+  "intent": "run targeted auth test suite",
+  "actor": {
+    "agent_id": "worker-1",
+    "session_id": "sess-002",
+    "initiating_user": "fabio",
+    "delegation_scope": "repo-maintainer"
+  },
+  "commands": [
+    {
+      "id": "cmd_1",
+      "exec": {
+        "argv": ["npm", "test", "--", "auth.spec.ts"]
+      },
+      "cwd": "/workspace/app",
+      "read_paths": ["/workspace/app/**"],
+      "write_paths": ["/workspace/app/test-results/**"],
+      "network": "deny",
+      "env_allow": ["CI"],
+      "secret_refs": [],
+      "timeout_sec": 180,
+      "proposed_effect_type": "transform_local"
+    }
+  ],
+  "risk_class": "medium",
+  "approval_mode": "policy_only",
+  "expected_outputs": ["/workspace/app/test-results/report.xml"],
+  "justification": "validate auth behavior"
+}

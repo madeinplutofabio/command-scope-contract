@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schemas/csc.contract.v0.1.schema.json",
+  "title": "CSC CommandContract v0.1",
+  "$defs": {
+    "absolutePath": {
+      "type": "string",
+      "anyOf": [
+        { "pattern": "^/" },
+        { "pattern": "^[A-Za-z]:[\\\\/]" },
+        { "pattern": "^(?:\\\\\\\\|//)[^\\\\/]+[\\\\/][^\\\\/]+" }
+      ]
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "contract_id",
+    "intent",
+    "actor",
+    "commands",
+    "risk_class",
+    "approval_mode",
+    "justification"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "csc.v0.1"
+    },
+    "contract_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "intent": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "session_id",
+        "initiating_user",
+        "delegation_scope"
+      ],
+      "properties": {
+        "agent_id": { "type": "string", "minLength": 1 },
+        "session_id": { "type": "string", "minLength": 1 },
+        "initiating_user": { "type": "string", "minLength": 1 },
+        "delegation_scope": { "type": "string", "minLength": 1 }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "cwd", "read_paths", "write_paths", "network", "env_allow", "secret_refs", "timeout_sec", "proposed_effect_type"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "exec": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["argv"],
+            "properties": {
+              "argv": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "pipeline": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["segments"],
+            "properties": {
+              "segments": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["argv"],
+                  "properties": {
+                    "argv": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": { "type": "string", "minLength": 1 }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "cwd": { "$ref": "#/$defs/absolutePath" },
+          "read_paths": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/absolutePath" }
+          },
+          "write_paths": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/absolutePath" }
+          },
+          "network": {
+            "type": "string",
+            "enum": ["deny", "allowlisted", "full"]
+          },
+          "env_allow": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "secret_refs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "timeout_sec": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 86400
+          },
+          "proposed_effect_type": {
+            "type": "string",
+            "enum": [
+              "observe",
+              "transform_local",
+              "fetch_external",
+              "mutate_repo",
+              "deploy",
+              "touch_secrets"
+            ]
+          }
+        },
+        "oneOf": [
+          { "required": ["exec"] },
+          { "required": ["pipeline"] }
+        ]
+      }
+    },
+    "risk_class": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "approval_mode": {
+      "type": "string",
+      "enum": ["policy_only", "human_required", "dual_control_required"]
+    },
+    "expected_outputs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/absolutePath" }
+    },
+    "justification": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schemas/csc.execution-receipt.v0.1.schema.json",
+  "title": "CSC ExecutionReceipt v0.1",
+  "$defs": {
+    "absolutePath": {
+      "type": "string",
+      "anyOf": [
+        { "pattern": "^/" },
+        { "pattern": "^[A-Za-z]:[\\\\/]" },
+        { "pattern": "^(?:\\\\\\\\|//)[^\\\\/]+[\\\\/][^\\\\/]+" }
+      ]
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_id",
+    "execution_id",
+    "contract_sha256",
+    "status",
+    "started_at",
+    "ended_at",
+    "policy_profile"
+  ],
+  "properties": {
+    "contract_id": { "type": "string", "minLength": 1 },
+    "execution_id": { "type": "string", "minLength": 1 },
+    "contract_sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+    "status": { "type": "string", "enum": ["success", "failed", "blocked", "expired"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "ended_at": { "type": "string", "format": "date-time" },
+    "exit_code": { "type": "integer" },
+    "stdout_hash": { "type": "string", "pattern": "^sha256:[A-Fa-f0-9]{64}$" },
+    "stderr_hash": { "type": "string", "pattern": "^sha256:[A-Fa-f0-9]{64}$" },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "$ref": "#/$defs/absolutePath" },
+          "sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" }
+        }
+      }
+    },
+    "policy_profile": { "type": "string", "minLength": 1 },
+    "effect_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "files_written": { "type": "integer", "minimum": 0 },
+        "network_used": { "type": "boolean" },
+        "secrets_used": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "completed_command_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "failed_command_id": { "type": ["string", "null"] },
+    "error": { "type": "string" }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "version": "csc.v0.1",
+  "contract_id": "contract_git_status_001",
+  "intent": "inspect repository state",
+  "actor": {
+    "agent_id": "worker-1",
+    "session_id": "sess-001",
+    "initiating_user": "fabio",
+    "delegation_scope": "repo-maintainer"
+  },
+  "commands": [
+    {
+      "id": "cmd_1",
+      "exec": {
+        "argv": ["git", "status", "--short"]
+      },
+      "cwd": "/workspace/repo",
+      "read_paths": ["/workspace/repo/**"],
+      "write_paths": [],
+      "network": "deny",
+      "env_allow": [],
+      "secret_refs": [],
+      "timeout_sec": 10,
+      "proposed_effect_type": "observe"
+    }
+  ],
+  "risk_class": "low",
+  "approval_mode": "policy_only",
+  "expected_outputs": [],
+  "justification": "understand repository state before changes"
+}
