@@ -69,9 +69,7 @@ def test_invalid_effect_type_rejected():
 
 def test_contract_with_both_exec_and_pipeline_rejected():
     invalid = copy.deepcopy(VALID_CONTRACT)
-    invalid["commands"][0]["pipeline"] = {
-        "segments": [{"argv": ["echo", "a"]}, {"argv": ["cat"]}]
-    }
+    invalid["commands"][0]["pipeline"] = {"segments": [{"argv": ["echo", "a"]}, {"argv": ["cat"]}]}
     with pytest.raises(ValidationError):
         validate_against_schema(invalid, CONTRACT_SCHEMA)
 

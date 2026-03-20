@@ -18,21 +18,27 @@ POLICIES_DIR = Path(__file__).resolve().parent.parent / "examples" / "policies"
 
 
 def test_check_allow_exit_0():
-    result = runner.invoke(app, [
-        "check",
-        str(CONTRACTS_DIR / "git-status.json"),
-        str(POLICIES_DIR / "dev-readonly.yaml"),
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "check",
+            str(CONTRACTS_DIR / "git-status.json"),
+            str(POLICIES_DIR / "dev-readonly.yaml"),
+        ],
+    )
     assert result.exit_code == 0
     assert "ALLOW" in result.output
 
 
 def test_check_deny_exit_1():
-    result = runner.invoke(app, [
-        "check",
-        str(CONTRACTS_DIR / "curl-denied.json"),
-        str(POLICIES_DIR / "dev-readonly.yaml"),
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "check",
+            str(CONTRACTS_DIR / "curl-denied.json"),
+            str(POLICIES_DIR / "dev-readonly.yaml"),
+        ],
+    )
     assert result.exit_code == 1
     assert "DENY" in result.output
 
@@ -51,9 +57,7 @@ def test_check_needs_approval_exit_2(tmp_path):
         "commands": [
             {
                 "id": "cmd_1",
-                "exec": {
-                    "argv": ["curl", "-X", "POST", "https://api.sandbox.stripe.com/v1/charges"]
-                },
+                "exec": {"argv": ["curl", "-X", "POST", "https://api.sandbox.stripe.com/v1/charges"]},
                 "cwd": "/workspace/app",
                 "read_paths": ["/workspace/app/**"],
                 "write_paths": [],
@@ -73,23 +77,30 @@ def test_check_needs_approval_exit_2(tmp_path):
     contract_path = tmp_path / "financial.json"
     contract_path.write_text(json.dumps(contract), encoding="utf-8")
 
-    result = runner.invoke(app, [
-        "check",
-        str(contract_path),
-        str(POLICIES_DIR / "regulated-restricted.yaml"),
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "check",
+            str(contract_path),
+            str(POLICIES_DIR / "regulated-restricted.yaml"),
+        ],
+    )
     assert result.exit_code == 2
     assert "NEEDS APPROVAL" in result.output
 
 
 def test_run_deny_creates_blocked_receipt(tmp_path):
     receipt_path = tmp_path / "receipt.json"
-    result = runner.invoke(app, [
-        "run",
-        str(CONTRACTS_DIR / "curl-denied.json"),
-        str(POLICIES_DIR / "dev-readonly.yaml"),
-        "--receipt-out", str(receipt_path),
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            str(CONTRACTS_DIR / "curl-denied.json"),
+            str(POLICIES_DIR / "dev-readonly.yaml"),
+            "--receipt-out",
+            str(receipt_path),
+        ],
+    )
     assert result.exit_code == 1
     assert receipt_path.exists()
     receipt = json.loads(receipt_path.read_text())
@@ -157,12 +168,16 @@ def test_run_success_writes_receipt(tmp_path):
     contract_path, policy_path = _write_run_test_files(tmp_path)
     receipt_path = tmp_path / "receipt.json"
 
-    result = runner.invoke(app, [
-        "run",
-        str(contract_path),
-        str(policy_path),
-        "--receipt-out", str(receipt_path),
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            str(contract_path),
+            str(policy_path),
+            "--receipt-out",
+            str(receipt_path),
+        ],
+    )
     assert result.exit_code in (0, 1)
     assert receipt_path.exists()
     receipt = json.loads(receipt_path.read_text())
@@ -184,9 +199,7 @@ def test_run_needs_approval_exit_2(tmp_path):
         "commands": [
             {
                 "id": "cmd_1",
-                "exec": {
-                    "argv": ["curl", "-X", "POST", "https://api.sandbox.stripe.com/v1/charges"]
-                },
+                "exec": {"argv": ["curl", "-X", "POST", "https://api.sandbox.stripe.com/v1/charges"]},
                 "cwd": "/workspace/app",
                 "read_paths": ["/workspace/app/**"],
                 "write_paths": [],
@@ -206,11 +219,14 @@ def test_run_needs_approval_exit_2(tmp_path):
     contract_path = tmp_path / "financial.json"
     contract_path.write_text(json.dumps(contract), encoding="utf-8")
 
-    result = runner.invoke(app, [
-        "run",
-        str(contract_path),
-        str(POLICIES_DIR / "regulated-restricted.yaml"),
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            str(contract_path),
+            str(POLICIES_DIR / "regulated-restricted.yaml"),
+        ],
+    )
     assert result.exit_code == 2
     assert "NEEDS APPROVAL" in result.output
 
@@ -218,20 +234,26 @@ def test_run_needs_approval_exit_2(tmp_path):
 def test_check_invalid_contract_exit_1(tmp_path):
     bad_contract = tmp_path / "bad.json"
     bad_contract.write_text('{"not": "a contract"}')
-    result = runner.invoke(app, [
-        "check",
-        str(bad_contract),
-        str(POLICIES_DIR / "dev-readonly.yaml"),
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "check",
+            str(bad_contract),
+            str(POLICIES_DIR / "dev-readonly.yaml"),
+        ],
+    )
     assert result.exit_code == 1
     assert "ERROR" in result.output
 
 
 def test_check_missing_file_exit_1():
-    result = runner.invoke(app, [
-        "check",
-        "nonexistent_file.json",
-        str(POLICIES_DIR / "dev-readonly.yaml"),
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "check",
+            "nonexistent_file.json",
+            str(POLICIES_DIR / "dev-readonly.yaml"),
+        ],
+    )
     assert result.exit_code == 1
     assert "ERROR" in result.output
