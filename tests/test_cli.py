@@ -10,6 +10,7 @@ import yaml
 from typer.testing import CliRunner
 
 from csc_runner.cli import app
+from csc_runner.limits import MAX_CONTRACT_SIZE_BYTES
 
 runner = CliRunner()
 
@@ -57,7 +58,14 @@ def test_check_needs_approval_exit_2(tmp_path):
         "commands": [
             {
                 "id": "cmd_1",
-                "exec": {"argv": ["curl", "-X", "POST", "https://api.sandbox.stripe.com/v1/charges"]},
+                "exec": {
+                    "argv": [
+                        "curl",
+                        "-X",
+                        "POST",
+                        "https://api.sandbox.stripe.com/v1/charges",
+                    ]
+                },
                 "cwd": "/workspace/app",
                 "read_paths": ["/workspace/app/**"],
                 "write_paths": [],
@@ -154,6 +162,7 @@ def _write_run_test_files(tmp_path):
         "allow_secret_refs": False,
         "allowed_cwd_prefixes": [cwd],
         "allowed_read_prefixes": [cwd],
+        "allowed_write_prefixes": [],
     }
 
     contract_path = tmp_path / "contract.json"
@@ -179,11 +188,11 @@ def test_run_success_writes_receipt(tmp_path):
             str(receipt_path),
         ],
     )
-    assert result.exit_code in (0, 1)
+    assert result.exit_code == 0
     assert receipt_path.exists()
     receipt = json.loads(receipt_path.read_text())
     assert receipt["contract_id"] == "run-test-001"
-    assert receipt["status"] in ("success", "failed")
+    assert receipt["status"] == "success"
 
 
 def test_run_needs_approval_exit_2(tmp_path):
@@ -200,7 +209,14 @@ def test_run_needs_approval_exit_2(tmp_path):
         "commands": [
             {
                 "id": "cmd_1",
-                "exec": {"argv": ["curl", "-X", "POST", "https://api.sandbox.stripe.com/v1/charges"]},
+                "exec": {
+                    "argv": [
+                        "curl",
+                        "-X",
+                        "POST",
+                        "https://api.sandbox.stripe.com/v1/charges",
+                    ]
+                },
                 "cwd": "/workspace/app",
                 "read_paths": ["/workspace/app/**"],
                 "write_paths": [],
@@ -278,3 +294,124 @@ def test_blocked_receipt_provenance(tmp_path):
     assert receipt["receipt_version"] == "csc.receipt.v0.1"
     assert receipt["runner_version"] is not None
     assert receipt["execution_mode"] == "local"
+
+
+# ---------------------------------------------------------------------------
+# Stage 1b: new CLI tests
+# ---------------------------------------------------------------------------
+
+
+def test_run_needs_approval_writes_blocked_receipt(tmp_path):
+    contract = {
+        "version": "csc.v0.1",
+        "contract_id": "temp-financial-003",
+        "intent": "post data to Stripe",
+        "actor": {
+            "agent_id": "worker-1",
+            "session_id": "sess-005",
+            "initiating_user": "fabio",
+            "delegation_scope": "repo-maintainer",
+        },
+        "commands": [
+            {
+                "id": "cmd_1",
+                "exec": {
+                    "argv": [
+                        "curl",
+                        "-X",
+                        "POST",
+                        "https://api.sandbox.stripe.com/v1/charges",
+                    ]
+                },
+                "cwd": "/workspace/app",
+                "read_paths": ["/workspace/app/**"],
+                "write_paths": [],
+                "network": "allowlisted",
+                "env_allow": [],
+                "secret_refs": [],
+                "timeout_sec": 30,
+                "proposed_effect_type": "fetch_external",
+            }
+        ],
+        "risk_class": "medium",
+        "approval_mode": "policy_only",
+        "expected_outputs": [],
+        "justification": "financial action test",
+    }
+
+    contract_path = tmp_path / "financial.json"
+    contract_path.write_text(json.dumps(contract), encoding="utf-8")
+
+    receipt_path = tmp_path / "receipt.json"
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            str(contract_path),
+            str(POLICIES_DIR / "regulated-restricted.yaml"),
+            "--receipt-out",
+            str(receipt_path),
+        ],
+    )
+    assert result.exit_code == 2
+    assert receipt_path.exists()
+    receipt = json.loads(receipt_path.read_text())
+    assert receipt["status"] == "blocked"
+    assert receipt["contract_id"] == "temp-financial-003"
+    assert receipt["receipt_version"] == "csc.receipt.v0.1"
+    assert "policy_sha256" in receipt
+    assert len(receipt["policy_sha256"]) == 64
+
+
+def test_run_oversized_contract_rejected(tmp_path):
+    oversized = tmp_path / "huge.json"
+    oversized.write_bytes(b"x" * (MAX_CONTRACT_SIZE_BYTES + 1))
+
+    policy_path = str(POLICIES_DIR / "dev-readonly.yaml")
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            str(oversized),
+            policy_path,
+        ],
+    )
+    assert result.exit_code == 1
+    assert "ERROR" in result.output
+
+
+def test_check_oversized_contract_rejected(tmp_path):
+    oversized = tmp_path / "huge.json"
+    oversized.write_bytes(b"x" * (MAX_CONTRACT_SIZE_BYTES + 1))
+
+    policy_path = str(POLICIES_DIR / "dev-readonly.yaml")
+    result = runner.invoke(
+        app,
+        [
+            "check",
+            str(oversized),
+            policy_path,
+        ],
+    )
+    assert result.exit_code == 1
+    assert "ERROR" in result.output
+
+
+def test_blocked_receipt_policy_provenance(tmp_path):
+    receipt_path = tmp_path / "receipt.json"
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            str(CONTRACTS_DIR / "curl-denied.json"),
+            str(POLICIES_DIR / "dev-readonly.yaml"),
+            "--receipt-out",
+            str(receipt_path),
+        ],
+    )
+    assert result.exit_code == 1
+    assert receipt_path.exists()
+    receipt = json.loads(receipt_path.read_text())
+    assert "policy_sha256" in receipt
+    assert len(receipt["policy_sha256"]) == 64
+    assert receipt["policy_schema_version"] == "csc.policy.v0.1"
