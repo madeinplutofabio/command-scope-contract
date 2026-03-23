@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schemas/csc.approval.v0.1.schema.json",
+  "title": "CSC Approval Artifact v0.1",
+  "description": "A single-approver approval artifact bound to a specific contract by SHA-256 hash. Required when the policy decision is needs_approval (human_required mode or policy-classified sensitive effects).",
+  "$defs": {
+    "sha256hex": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approval_version",
+    "approval_id",
+    "contract_sha256",
+    "approver",
+    "approved_at",
+    "expires_at",
+    "scope"
+  ],
+  "properties": {
+    "approval_version": {
+      "type": "string",
+      "const": "csc.approval.v0.1",
+      "description": "Schema version identifier. Parsers MUST use this field to select the correct schema."
+    },
+    "approval_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable unique identifier for this approval artifact. Must be unique within the trust domain. Required for auditability and single-execution replay prevention."
+    },
+    "contract_sha256": {
+      "$ref": "#/$defs/sha256hex",
+      "description": "SHA-256 hash of the canonicalized contract this approval authorizes. The runner MUST reject the approval if this does not match the contract being executed."
+    },
+    "approver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "method"],
+      "properties": {
+        "identity": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique identifier for the approver (e.g. email, SSO subject, GitHub username)."
+        },
+        "method": {
+          "type": "string",
+          "enum": ["manual", "cli", "api", "ticket"],
+          "description": "How the approval was granted."
+        }
+      }
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the approval was granted."
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp after which this approval is no longer valid. The runner MUST reject expired approvals."
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["single_execution", "time_window"],
+      "description": "single_execution: may be consumed once. time_window: may be reused until expires_at, subject to runner policy."
+    },
+    "ticket_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional reference to an external change request, ticket, or issue that justified this approval."
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 4000,
+      "description": "Optional human-readable justification for granting the approval."
+    }
+  }
+}

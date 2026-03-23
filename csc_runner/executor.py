@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.metadata import version as pkg_version
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from csc_runner.limits import (
     MAX_STDERR_CAPTURE_BYTES,
@@ -21,6 +21,7 @@ from csc_runner.models import CommandContract
 from csc_runner.pathutil import (
     CwdNotFoundError,
     PathEscapeError,
+    _glob_literal_prefix,
     check_cwd_exists,
     normalize_and_check_scope,
     resolve_and_check_cwd,
@@ -30,6 +31,63 @@ from csc_runner.utils import hash_contract
 RECEIPT_VERSION = "csc.receipt.v0.1"
 
 _EMPTY_HASH = "sha256:" + hashlib.sha256(b"").hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Approval consumption store
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class ApprovalStore(Protocol):
+    """Tracks consumed single-execution approvals.
+
+    Stage 2 ships with InMemoryApprovalStore (process-local).
+    Persistent backends (SQLite, Redis, etc.) can implement this
+    protocol for durable replay prevention across restarts.
+    """
+
+    def is_consumed(self, approval_id: str) -> bool: ...
+    def mark_consumed(self, approval_id: str) -> None: ...
+
+
+class InMemoryApprovalStore:
+    """Process-local approval consumption store.
+
+    Suitable for the Stage 2 pilot only. Replay prevention is
+    per-runner-process — consumed approvals are lost on restart.
+
+    Note: is_consumed() + mark_consumed() is not atomic. Concurrent
+    executions in the same process could race. For concurrent use,
+    replace with an atomic consume_if_unused(approval_id) -> bool.
+    """
+
+    def __init__(self) -> None:
+        self._consumed: set[str] = set()
+
+    def is_consumed(self, approval_id: str) -> bool:
+        return approval_id in self._consumed
+
+    def mark_consumed(self, approval_id: str) -> None:
+        self._consumed.add(approval_id)
+
+    def reset(self) -> None:
+        """For testing only."""
+        self._consumed.clear()
+
+
+# Default store instance for the runner process.
+_default_approval_store = InMemoryApprovalStore()
+
+
+def get_default_approval_store() -> InMemoryApprovalStore:
+    """Return the default process-local approval store."""
+    return _default_approval_store
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
 def runner_version() -> str:
@@ -57,7 +115,6 @@ def _hash_policy(policy: dict) -> str:
 def _build_env(env_allow: list[str]) -> dict[str, str]:
     env: dict[str, str] = {}
 
-    # Preserve minimal runtime essentials so non-absolute executables can resolve.
     for key in ("PATH", "SystemRoot", "COMSPEC", "PATHEXT"):
         if key in os.environ:
             env[key] = os.environ[key]
@@ -69,6 +126,10 @@ def _build_env(env_allow: list[str]) -> dict[str, str]:
     return env
 
 
+def _extract_literal_prefix(path: str) -> str:
+    return _glob_literal_prefix(path)
+
+
 # ---------------------------------------------------------------------------
 # Capped output capture
 # ---------------------------------------------------------------------------
@@ -76,8 +137,6 @@ def _build_env(env_allow: list[str]) -> dict[str, str]:
 
 @dataclass
 class CapturedOutput:
-    """Result of capped stream capture."""
-
     data: bytes
     hash_hex: str
     truncated: bool
@@ -88,17 +147,6 @@ def _empty_capture() -> CapturedOutput:
 
 
 class _CappedCapture:
-    """Incrementally captures output up to a byte cap.
-
-    Only captured bytes (up to the cap) are hashed.  Bytes beyond the
-    cap are drained from the pipe to prevent subprocess blocking but
-    are not retained or hashed.
-
-    Thread-safe: multiple drain threads may call feed() concurrently
-    (used for aggregating stderr from all pipeline segments into one
-    shared capture).
-    """
-
     def __init__(self, max_bytes: int) -> None:
         self._max = max_bytes
         self._buf = bytearray()
@@ -130,10 +178,6 @@ class _CappedCapture:
 
 
 def _drain_stream(stream, capture: _CappedCapture) -> None:
-    """Read a stream to completion, feeding into a CappedCapture.
-
-    Owns the stream: closes it when done or on error.
-    """
     try:
         while True:
             chunk = stream.read(8192)
@@ -156,15 +200,6 @@ def _cleanup_pipeline(
     *,
     terminate: bool,
 ) -> None:
-    """Clean up a pipeline without racing the final stdout reader.
-
-    Ownership model:
-    - _drain_stream() owns and closes any stream it is draining.
-    - Parent code may close intermediate proc.stdout handles after they are
-      handed off to the next child.
-    - Parent code must NOT close procs[-1].stdout if t_final_out exists;
-      the final stdout drain thread owns that stream.
-    """
     if terminate:
         for proc in procs:
             if proc.poll() is None:
@@ -184,21 +219,16 @@ def _cleanup_pipeline(
             if proc.poll() is None:
                 proc.wait()
 
-    # Join the final stdout reader first. It owns procs[-1].stdout.
     if t_final_out is not None:
         t_final_out.join(timeout=10)
 
-    # Join stderr readers. Each owns its proc.stderr.
     for t in stderr_threads:
         t.join(timeout=10)
 
-    # Close any intermediate stdout handles still open in the parent.
     for proc in procs[:-1]:
         if proc.stdout and not proc.stdout.closed:
             proc.stdout.close()
 
-    # If no final stdout reader was ever started, the parent still owns the
-    # last proc.stdout and must close it here.
     if t_final_out is None and procs:
         last_stdout = procs[-1].stdout
         if last_stdout and not last_stdout.closed:
@@ -216,12 +246,6 @@ def _run_exec(
     env: dict[str, str],
     timeout_sec: float,
 ) -> tuple[int, CapturedOutput, CapturedOutput]:
-    """Run a single command with capped output capture.
-
-    Returns (returncode, stdout_captured, stderr_captured).
-    Raises subprocess.TimeoutExpired (with .stdout/.stderr as
-    CapturedOutput) or FileNotFoundError.
-    """
     proc = subprocess.Popen(
         argv,
         cwd=cwd,
@@ -273,22 +297,10 @@ def _run_pipeline(
     env: dict[str, str],
     timeout_sec: int,
 ) -> tuple[int, CapturedOutput, CapturedOutput]:
-    """Run a pipeline of commands with OS pipes between segments.
-
-    Intermediate stdout flows through kernel pipe buffers — never
-    capped or buffered in Python.  Only the final segment's stdout
-    is captured.  Stderr from ALL segments is aggregated into one
-    shared capture (interleaving across segments is nondeterministic).
-
-    Returns (returncode, stdout_captured, stderr_captured).
-    Raises subprocess.TimeoutExpired, FileNotFoundError, or PermissionError.
-    """
     deadline = time.monotonic() + timeout_sec
     procs: list[subprocess.Popen] = []
     stderr_threads: list[threading.Thread] = []
 
-    # Create captures before process creation so they exist even if
-    # a later segment fails to spawn.
     pipeline_stderr_cap = _CappedCapture(MAX_STDERR_CAPTURE_BYTES)
     final_stdout_cap = _CappedCapture(MAX_STDOUT_CAPTURE_BYTES)
     t_final_out: threading.Thread | None = None
@@ -316,8 +328,6 @@ def _run_pipeline(
             )
             procs.append(proc)
 
-            # Once the next child has inherited the previous stdout pipe,
-            # the parent must close its copy so EOF can propagate correctly.
             if not is_first:
                 prev_stdout = procs[i - 1].stdout
                 if prev_stdout and not prev_stdout.closed:
@@ -347,12 +357,7 @@ def _run_pipeline(
                 raise exc
             proc.wait(timeout=remaining)
 
-        _cleanup_pipeline(
-            procs,
-            stderr_threads,
-            t_final_out,
-            terminate=False,
-        )
+        _cleanup_pipeline(procs, stderr_threads, t_final_out, terminate=False)
 
         for proc in procs:
             if proc.returncode != 0:
@@ -369,34 +374,19 @@ def _run_pipeline(
         )
 
     except subprocess.TimeoutExpired as exc:
-        _cleanup_pipeline(
-            procs,
-            stderr_threads,
-            t_final_out,
-            terminate=True,
-        )
+        _cleanup_pipeline(procs, stderr_threads, t_final_out, terminate=True)
         exc.stdout = final_stdout_cap.result()
         exc.stderr = pipeline_stderr_cap.result()
         raise
 
     except (FileNotFoundError, PermissionError) as exc:
-        _cleanup_pipeline(
-            procs,
-            stderr_threads,
-            t_final_out,
-            terminate=True,
-        )
+        _cleanup_pipeline(procs, stderr_threads, t_final_out, terminate=True)
         exc.stdout = final_stdout_cap.result()
         exc.stderr = pipeline_stderr_cap.result()
         raise
 
     except Exception:
-        _cleanup_pipeline(
-            procs,
-            stderr_threads,
-            t_final_out,
-            terminate=True,
-        )
+        _cleanup_pipeline(procs, stderr_threads, t_final_out, terminate=True)
         raise
 
 
@@ -410,8 +400,8 @@ def _base_receipt(
     policy_profile: str,
     policy: dict,
     start: str,
+    mode: str = "local",
 ) -> dict[str, Any]:
-    """Return the fields shared by every receipt."""
     receipt: dict[str, Any] = {
         "receipt_version": RECEIPT_VERSION,
         "contract_id": contract.contract_id,
@@ -419,7 +409,7 @@ def _base_receipt(
         "contract_sha256": hash_contract(contract),
         "policy_profile": policy_profile,
         "runner_version": runner_version(),
-        "execution_mode": "local",
+        "execution_mode": mode,
         "started_at": start,
     }
     schema_ver = policy.get("policy_schema_version")
@@ -446,9 +436,9 @@ def _blocked_receipt(
     exit_code: int | None = None,
     completed_ids: list[str] | None = None,
     failed_cmd_id: str | None = None,
+    mode: str = "local",
 ) -> dict[str, Any]:
-    """Build a receipt for a blocked (pre-execution denial) contract."""
-    receipt = _base_receipt(contract, policy_profile, policy, start)
+    receipt = _base_receipt(contract, policy_profile, policy, start, mode=mode)
     receipt.update(
         {
             "status": "blocked",
@@ -474,9 +464,9 @@ def _failed_receipt(
     stderr: CapturedOutput,
     exit_code: int,
     error: str,
+    mode: str = "local",
 ) -> dict[str, Any]:
-    """Build a receipt for a failed execution."""
-    receipt = _base_receipt(contract, policy_profile, policy, start)
+    receipt = _base_receipt(contract, policy_profile, policy, start, mode=mode)
     receipt.update(
         {
             "status": "failed",
@@ -499,6 +489,83 @@ def _failed_receipt(
 
 
 # ---------------------------------------------------------------------------
+# Receipt finalization (signing)
+# ---------------------------------------------------------------------------
+
+
+def _finalize_receipt(
+    receipt: dict[str, Any],
+    *,
+    mode: str,
+    private_key_bytes: bytes | None,
+    signing_key_id: str | None,
+) -> dict[str, Any]:
+    """Optionally sign a receipt. All receipts go through this path.
+
+    Signing behavior:
+    - Both keys absent (None) → return unsigned receipt.
+    - Both present → sign. Failure handling depends on mode.
+    - Partial config (one present, one absent/empty) → always error.
+
+    Mode-specific failure handling:
+    - hardened: signing failure returns a fresh schema-valid failed receipt.
+    - local: signing failure raises SigningError to the caller.
+    """
+    if private_key_bytes is None and signing_key_id is None:
+        return receipt
+
+    from csc_runner.signing import SigningError, sign_receipt
+
+    if private_key_bytes is None or not signing_key_id:
+        raise SigningError("signing requires both private_key_bytes and non-empty signing_key_id")
+
+    try:
+        return sign_receipt(
+            receipt,
+            private_key_bytes=private_key_bytes,
+            key_id=signing_key_id,
+        )
+    except SigningError:
+        if mode == "hardened":
+            failed: dict[str, Any] = {
+                "receipt_version": receipt.get("receipt_version", RECEIPT_VERSION),
+                "contract_id": receipt.get("contract_id", ""),
+                "execution_id": receipt.get("execution_id", ""),
+                "contract_sha256": receipt.get("contract_sha256", ""),
+                "policy_profile": receipt.get("policy_profile", ""),
+                "runner_version": receipt.get("runner_version", runner_version()),
+                "execution_mode": "hardened",
+                "started_at": receipt.get("started_at", ""),
+                "ended_at": _iso_now(),
+                "status": "failed",
+                "exit_code": 1,
+                "stdout_hash": receipt.get("stdout_hash", _EMPTY_HASH),
+                "stderr_hash": receipt.get("stderr_hash", _EMPTY_HASH),
+                "artifacts": [],
+                "effect_summary": receipt.get("effect_summary", {}),
+                "completed_command_ids": receipt.get("completed_command_ids", []),
+                "failed_command_id": receipt.get("failed_command_id"),
+                "error": truncate_error("receipt signing failed in hardened mode"),
+            }
+            if "policy_sha256" in receipt:
+                failed["policy_sha256"] = receipt["policy_sha256"]
+            if "policy_schema_version" in receipt:
+                failed["policy_schema_version"] = receipt["policy_schema_version"]
+            return failed
+        raise
+
+
+# ---------------------------------------------------------------------------
+# Approval consumption helper
+# ---------------------------------------------------------------------------
+
+
+def _consume_approval(approval: dict, store: ApprovalStore) -> None:
+    if approval.get("scope") == "single_execution":
+        store.mark_consumed(approval.get("approval_id", ""))
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 
@@ -507,23 +574,158 @@ def run_contract(
     contract: CommandContract,
     policy_profile: str,
     policy: dict,
+    *,
+    mode: str = "local",
+    approval: dict | None = None,
+    approval_required: bool = False,
+    approval_store: ApprovalStore | None = None,
+    sandbox_config: Any | None = None,
+    private_key_bytes: bytes | None = None,
+    signing_key_id: str | None = None,
 ) -> dict[str, Any]:
+    """Execute a contract and return a receipt.
+
+    Returns:
+        Receipt dict. In hardened mode, always signed — except when
+        signing config is missing/invalid (unsigned blocked receipt)
+        or signing fails after receipt construction (unsigned failed
+        receipt). In local mode, signed if keys provided; raises
+        SigningError on signing failure or partial config.
+    """
     start = _iso_now()
+
+    if mode not in ("local", "hardened"):
+        raise ValueError(f"mode must be 'local' or 'hardened', got {mode!r}")
+
+    if approval_store is None:
+        approval_store = _default_approval_store
+
+    # --- Hardened mode: require and validate signing config FIRST ---
+    if mode == "hardened":
+        if private_key_bytes is None or not signing_key_id:
+            return _blocked_receipt(
+                contract,
+                policy_profile,
+                policy,
+                start,
+                "hardened mode requires signing configuration (private_key_bytes and signing_key_id)",
+                mode=mode,
+            )
+        try:
+            from csc_runner.signing import _load_private_key
+
+            _load_private_key(private_key_bytes)
+        except Exception as exc:
+            return _blocked_receipt(
+                contract,
+                policy_profile,
+                policy,
+                start,
+                f"invalid signing key: {exc}",
+                mode=mode,
+            )
+
+    # --- Pre-execution: approval required but absent ---
+    if approval_required and approval is None:
+        return _finalize_receipt(
+            _blocked_receipt(
+                contract,
+                policy_profile,
+                policy,
+                start,
+                "approval is required but none was provided",
+                mode=mode,
+            ),
+            mode=mode,
+            private_key_bytes=private_key_bytes,
+            signing_key_id=signing_key_id,
+        )
+
+    # --- Pre-execution: validate approval (but don't consume yet) ---
+    if approval is not None:
+        from csc_runner.approval import ApprovalError, validate_approval
+
+        contract_sha256 = hash_contract(contract)
+        try:
+            validate_approval(approval, contract_sha256)
+        except ApprovalError as exc:
+            return _finalize_receipt(
+                _blocked_receipt(contract, policy_profile, policy, start, str(exc), mode=mode),
+                mode=mode,
+                private_key_bytes=private_key_bytes,
+                signing_key_id=signing_key_id,
+            )
+
+        aid = approval.get("approval_id", "")
+        if approval.get("scope") == "single_execution" and approval_store.is_consumed(aid):
+            return _finalize_receipt(
+                _blocked_receipt(
+                    contract,
+                    policy_profile,
+                    policy,
+                    start,
+                    f"approval {aid!r} has already been consumed (single_execution)",
+                    mode=mode,
+                ),
+                mode=mode,
+                private_key_bytes=private_key_bytes,
+                signing_key_id=signing_key_id,
+            )
+
+    # --- Pre-execution: hardened mode sandbox verification ---
+    if mode == "hardened":
+        from csc_runner.sandbox import SandboxError, verify_hardened_runtime
+
+        if sandbox_config is None:
+            return _finalize_receipt(
+                _blocked_receipt(
+                    contract,
+                    policy_profile,
+                    policy,
+                    start,
+                    "hardened mode requires sandbox_config",
+                    mode=mode,
+                ),
+                mode=mode,
+                private_key_bytes=private_key_bytes,
+                signing_key_id=signing_key_id,
+            )
+        try:
+            verify_hardened_runtime(sandbox_config)
+        except SandboxError as exc:
+            return _finalize_receipt(
+                _blocked_receipt(contract, policy_profile, policy, start, str(exc), mode=mode),
+                mode=mode,
+                private_key_bytes=private_key_bytes,
+                signing_key_id=signing_key_id,
+            )
 
     # --- Pre-execution: resource limits ---
     violations = validate_contract_limits(contract)
     if violations:
-        return _blocked_receipt(contract, policy_profile, policy, start, "; ".join(violations))
+        return _finalize_receipt(
+            _blocked_receipt(
+                contract,
+                policy_profile,
+                policy,
+                start,
+                "; ".join(violations),
+                mode=mode,
+            ),
+            mode=mode,
+            private_key_bytes=private_key_bytes,
+            signing_key_id=signing_key_id,
+        )
 
     rc: int | None = None
     last_stdout = _empty_capture()
     last_stderr = _empty_capture()
     completed_command_ids: list[str] = []
     failed_command_id: str | None = None
+    approval_consumed = False
 
     try:
         for command in contract.commands:
-            # --- Pre-execution: path enforcement ---
             allowed_cwd = policy.get("allowed_cwd_prefixes", [])
             allowed_read = policy.get("allowed_read_prefixes", [])
             allowed_write = policy.get("allowed_write_prefixes", [])
@@ -531,74 +733,113 @@ def run_contract(
             try:
                 resolved_cwd = resolve_and_check_cwd(command.cwd, allowed_cwd)
             except PathEscapeError as exc:
-                return _blocked_receipt(
-                    contract,
-                    policy_profile,
-                    policy,
-                    start,
-                    str(exc),
-                    exit_code=126,
-                    completed_ids=completed_command_ids,
-                    failed_cmd_id=command.id,
+                return _finalize_receipt(
+                    _blocked_receipt(
+                        contract,
+                        policy_profile,
+                        policy,
+                        start,
+                        str(exc),
+                        exit_code=126,
+                        completed_ids=completed_command_ids,
+                        failed_cmd_id=command.id,
+                        mode=mode,
+                    ),
+                    mode=mode,
+                    private_key_bytes=private_key_bytes,
+                    signing_key_id=signing_key_id,
                 )
 
             try:
                 check_cwd_exists(resolved_cwd)
             except CwdNotFoundError as exc:
-                return _failed_receipt(
-                    contract,
-                    policy_profile,
-                    policy,
-                    start,
-                    command.id,
-                    completed_command_ids,
-                    last_stdout,
-                    last_stderr,
-                    exit_code=126,
-                    error=str(exc),
+                return _finalize_receipt(
+                    _failed_receipt(
+                        contract,
+                        policy_profile,
+                        policy,
+                        start,
+                        command.id,
+                        completed_command_ids,
+                        last_stdout,
+                        last_stderr,
+                        exit_code=126,
+                        error=str(exc),
+                        mode=mode,
+                    ),
+                    mode=mode,
+                    private_key_bytes=private_key_bytes,
+                    signing_key_id=signing_key_id,
                 )
 
             for path in command.read_paths:
                 try:
                     normalize_and_check_scope(path, allowed_read, label="read_paths")
                 except PathEscapeError as exc:
-                    return _blocked_receipt(
-                        contract,
-                        policy_profile,
-                        policy,
-                        start,
-                        str(exc),
-                        exit_code=126,
-                        completed_ids=completed_command_ids,
-                        failed_cmd_id=command.id,
+                    return _finalize_receipt(
+                        _blocked_receipt(
+                            contract,
+                            policy_profile,
+                            policy,
+                            start,
+                            str(exc),
+                            exit_code=126,
+                            completed_ids=completed_command_ids,
+                            failed_cmd_id=command.id,
+                            mode=mode,
+                        ),
+                        mode=mode,
+                        private_key_bytes=private_key_bytes,
+                        signing_key_id=signing_key_id,
                     )
 
             for path in command.write_paths:
                 try:
                     normalize_and_check_scope(path, allowed_write, label="write_paths")
                 except PathEscapeError as exc:
-                    return _blocked_receipt(
-                        contract,
-                        policy_profile,
-                        policy,
-                        start,
-                        str(exc),
-                        exit_code=126,
-                        completed_ids=completed_command_ids,
-                        failed_cmd_id=command.id,
+                    return _finalize_receipt(
+                        _blocked_receipt(
+                            contract,
+                            policy_profile,
+                            policy,
+                            start,
+                            str(exc),
+                            exit_code=126,
+                            completed_ids=completed_command_ids,
+                            failed_cmd_id=command.id,
+                            mode=mode,
+                        ),
+                        mode=mode,
+                        private_key_bytes=private_key_bytes,
+                        signing_key_id=signing_key_id,
                     )
 
-            # --- Execution ---
             env = _build_env(command.env_allow)
 
             if command.exec is not None:
-                rc, last_stdout, last_stderr = _run_exec(
-                    command.exec.argv,
-                    resolved_cwd,
-                    env,
-                    command.timeout_sec,
-                )
+                user_argv = command.exec.argv
             else:
+                if mode == "hardened":
+                    return _finalize_receipt(
+                        _blocked_receipt(
+                            contract,
+                            policy_profile,
+                            policy,
+                            start,
+                            "pipelines are not supported in hardened mode",
+                            completed_ids=completed_command_ids,
+                            failed_cmd_id=command.id,
+                            mode=mode,
+                        ),
+                        mode=mode,
+                        private_key_bytes=private_key_bytes,
+                        signing_key_id=signing_key_id,
+                    )
+
+                if not approval_consumed and approval is not None:
+                    _consume_approval(approval, approval_store)
+                    approval_consumed = True
+
                 segments = [seg.argv for seg in command.pipeline.segments]
                 rc, last_stdout, last_stderr = _run_pipeline(
                     segments,
@@ -606,6 +847,79 @@ def run_contract(
                     env,
                     command.timeout_sec,
                 )
+                if rc == 0:
+                    completed_command_ids.append(command.id)
+                else:
+                    failed_command_id = command.id
+                    break
+                continue
+
+            if mode == "hardened":
+                from csc_runner.sandbox import (
+                    SandboxError,
+                    build_hardened_command,
+                    check_command_allowed,
+                )
+
+                try:
+                    check_command_allowed(user_argv, sandbox_config)
+                except SandboxError as exc:
+                    return _finalize_receipt(
+                        _blocked_receipt(
+                            contract,
+                            policy_profile,
+                            policy,
+                            start,
+                            str(exc),
+                            completed_ids=completed_command_ids,
+                            failed_cmd_id=command.id,
+                            mode=mode,
+                        ),
+                        mode=mode,
+                        private_key_bytes=private_key_bytes,
+                        signing_key_id=signing_key_id,
+                    )
+
+                read_bind = [_extract_literal_prefix(p) for p in command.read_paths if _extract_literal_prefix(p)]
+                write_bind = [_extract_literal_prefix(p) for p in command.write_paths if _extract_literal_prefix(p)]
+
+                try:
+                    exec_argv = build_hardened_command(
+                        user_argv,
+                        cwd=resolved_cwd,
+                        read_bind_prefixes=read_bind,
+                        write_bind_prefixes=write_bind,
+                        config=sandbox_config,
+                    )
+                except SandboxError as exc:
+                    return _finalize_receipt(
+                        _blocked_receipt(
+                            contract,
+                            policy_profile,
+                            policy,
+                            start,
+                            str(exc),
+                            completed_ids=completed_command_ids,
+                            failed_cmd_id=command.id,
+                            mode=mode,
+                        ),
+                        mode=mode,
+                        private_key_bytes=private_key_bytes,
+                        signing_key_id=signing_key_id,
+                    )
+            else:
+                exec_argv = user_argv
+
+            if not approval_consumed and approval is not None:
+                _consume_approval(approval, approval_store)
+                approval_consumed = True
+
+            rc, last_stdout, last_stderr = _run_exec(
+                exec_argv,
+                resolved_cwd,
+                env,
+                command.timeout_sec,
+            )
 
             if rc == 0:
                 completed_command_ids.append(command.id)
@@ -623,17 +937,23 @@ def run_contract(
         terr = getattr(exc, "stderr", None)
         stdout_out = tout if isinstance(tout, CapturedOutput) else last_stdout
         stderr_out = terr if isinstance(terr, CapturedOutput) else last_stderr
-        return _failed_receipt(
-            contract,
-            policy_profile,
-            policy,
-            start,
-            failed_command_id,
-            completed_command_ids,
-            stdout_out,
-            stderr_out,
-            exit_code=124,
-            error=f"command timed out after {exc.timeout} seconds",
+        return _finalize_receipt(
+            _failed_receipt(
+                contract,
+                policy_profile,
+                policy,
+                start,
+                failed_command_id,
+                completed_command_ids,
+                stdout_out,
+                stderr_out,
+                exit_code=124,
+                error=f"command timed out after {exc.timeout} seconds",
+                mode=mode,
+            ),
+            mode=mode,
+            private_key_bytes=private_key_bytes,
+            signing_key_id=signing_key_id,
         )
 
     except FileNotFoundError as exc:
@@ -646,17 +966,23 @@ def run_contract(
         terr = getattr(exc, "stderr", None)
         stdout_out = tout if isinstance(tout, CapturedOutput) else last_stdout
         stderr_out = terr if isinstance(terr, CapturedOutput) else last_stderr
-        return _failed_receipt(
-            contract,
-            policy_profile,
-            policy,
-            start,
-            failed_command_id,
-            completed_command_ids,
-            stdout_out,
-            stderr_out,
-            exit_code=127,
-            error=str(exc),
+        return _finalize_receipt(
+            _failed_receipt(
+                contract,
+                policy_profile,
+                policy,
+                start,
+                failed_command_id,
+                completed_command_ids,
+                stdout_out,
+                stderr_out,
+                exit_code=127,
+                error=str(exc),
+                mode=mode,
+            ),
+            mode=mode,
+            private_key_bytes=private_key_bytes,
+            signing_key_id=signing_key_id,
         )
 
     except PermissionError as exc:
@@ -669,17 +995,23 @@ def run_contract(
         terr = getattr(exc, "stderr", None)
         stdout_out = tout if isinstance(tout, CapturedOutput) else last_stdout
         stderr_out = terr if isinstance(terr, CapturedOutput) else last_stderr
-        return _failed_receipt(
-            contract,
-            policy_profile,
-            policy,
-            start,
-            failed_command_id,
-            completed_command_ids,
-            stdout_out,
-            stderr_out,
-            exit_code=126,
-            error=str(exc),
+        return _finalize_receipt(
+            _failed_receipt(
+                contract,
+                policy_profile,
+                policy,
+                start,
+                failed_command_id,
+                completed_command_ids,
+                stdout_out,
+                stderr_out,
+                exit_code=126,
+                error=str(exc),
+                mode=mode,
+            ),
+            mode=mode,
+            private_key_bytes=private_key_bytes,
+            signing_key_id=signing_key_id,
         )
 
     except Exception as exc:
@@ -688,25 +1020,30 @@ def run_contract(
             if len(completed_command_ids) < len(contract.commands)
             else None
         )
-        return _failed_receipt(
-            contract,
-            policy_profile,
-            policy,
-            start,
-            failed_command_id,
-            completed_command_ids,
-            last_stdout,
-            last_stderr,
-            exit_code=1,
-            error=f"internal runner error: {exc}",
+        return _finalize_receipt(
+            _failed_receipt(
+                contract,
+                policy_profile,
+                policy,
+                start,
+                failed_command_id,
+                completed_command_ids,
+                last_stdout,
+                last_stderr,
+                exit_code=1,
+                error=f"internal runner error: {exc}",
+                mode=mode,
+            ),
+            mode=mode,
+            private_key_bytes=private_key_bytes,
+            signing_key_id=signing_key_id,
         )
 
-    # --- Success or non-zero exit ---
     end = _iso_now()
     exit_code = rc if rc is not None else 1
     status = "success" if exit_code == 0 else "failed"
 
-    receipt = _base_receipt(contract, policy_profile, policy, start)
+    receipt = _base_receipt(contract, policy_profile, policy, start, mode=mode)
     receipt.update(
         {
             "status": status,
@@ -725,4 +1062,10 @@ def run_contract(
         receipt["stdout_truncated"] = True
     if last_stderr.truncated:
         receipt["stderr_truncated"] = True
-    return receipt
+
+    return _finalize_receipt(
+        receipt,
+        mode=mode,
+        private_key_bytes=private_key_bytes,
+        signing_key_id=signing_key_id,
+    )
