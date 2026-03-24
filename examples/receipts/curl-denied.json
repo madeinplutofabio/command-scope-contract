@@ -1,0 +1,12 @@
+{
+  "contract_id": "contract_curl_denied_001",
+  "execution_id": "exec_contract_curl_denied_001",
+  "contract_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "status": "blocked",
+  "started_at": "2026-03-19T12:00:00+00:00",
+  "ended_at": "2026-03-19T12:00:00+00:00",
+  "policy_profile": "dev-readonly",
+  "completed_command_ids": [],
+  "failed_command_id": null,
+  "error": "risk class not allowed: high"
+}

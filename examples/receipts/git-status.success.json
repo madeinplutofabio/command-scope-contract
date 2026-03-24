@@ -1,0 +1,21 @@
+{
+  "contract_id": "contract_git_status_001",
+  "execution_id": "exec_contract_git_status_001",
+  "contract_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "status": "success",
+  "started_at": "2026-03-19T12:00:00+00:00",
+  "ended_at": "2026-03-19T12:00:01+00:00",
+  "exit_code": 0,
+  "stdout_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "artifacts": [],
+  "policy_profile": "dev-readonly",
+  "effect_summary": {
+    "files_written": 0,
+    "network_used": false,
+    "secrets_used": 0
+  },
+  "completed_command_ids": ["cmd_1"],
+  "failed_command_id": null,
+  "error": ""
+}
