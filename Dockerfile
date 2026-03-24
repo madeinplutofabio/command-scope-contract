@@ -41,7 +41,7 @@
 # runtime image should install without [dev] extras and copy only
 # the necessary source files.
 
-FROM python:3.11-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 
