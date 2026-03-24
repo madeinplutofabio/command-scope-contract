@@ -64,9 +64,15 @@ jobs:
           docker run \
             --network=none \
             --rm \
+            --privileged \
             --entrypoint python \
             -v ${{ github.workspace }}:/repo:ro \
             -w /app \
             csc-hardened \
             -m pytest /repo/tests/test_integration_hardened.py -v --tb=short
         timeout-minutes: 10
+        # --privileged is required because bwrap needs to create
+        # namespaces (user, mount, pid, net) inside the container.
+        # GitHub Actions' default Docker seccomp profile restricts
+        # these operations. The security boundary being tested is
+        # bwrap itself, not the CI host.
