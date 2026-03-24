@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 
 import pytest
 
@@ -17,6 +18,7 @@ from csc_runner.sandbox import (
     _is_under_any,
     _resolve_writable_roots,
     _validate_bind_prefix,
+    _verify_bwrap_capabilities,
     build_hardened_command,
     check_command_allowed,
     default_hardened_config,
@@ -30,6 +32,21 @@ from csc_runner.sandbox import (
 
 def _config(**overrides) -> SandboxConfig:
     return SandboxConfig(**overrides)
+
+
+def _mock_bwrap_success(*args, **kwargs):
+    """Monkeypatch target for subprocess.run that simulates bwrap success."""
+    return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="", stderr="")
+
+
+def _mock_bwrap_failure(*args, **kwargs):
+    """Monkeypatch target for subprocess.run that simulates bwrap failure."""
+    return subprocess.CompletedProcess(
+        args=args[0],
+        returncode=1,
+        stdout="",
+        stderr="bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -235,10 +252,108 @@ class TestVerifyNetworkDisabled:
             verify_network_disabled()
 
 
+# ---------------------------------------------------------------------------
+# bwrap capability smoke test
+# ---------------------------------------------------------------------------
+
+
+class TestVerifyBwrapCapabilities:
+    def test_bwrap_smoke_success(self, monkeypatch):
+        monkeypatch.setattr("csc_runner.sandbox.os.path.exists", lambda p: True)
+        monkeypatch.setattr("csc_runner.sandbox.subprocess.run", _mock_bwrap_success)
+        config = _config()
+        _verify_bwrap_capabilities(config)
+
+    def test_bwrap_smoke_failure_gives_clear_error(self, monkeypatch):
+        monkeypatch.setattr("csc_runner.sandbox.os.path.exists", lambda p: True)
+        monkeypatch.setattr("csc_runner.sandbox.subprocess.run", _mock_bwrap_failure)
+        config = _config()
+        with pytest.raises(SandboxError, match="runtime check failed"):
+            _verify_bwrap_capabilities(config)
+
+    def test_bwrap_smoke_failure_mentions_docs(self, monkeypatch):
+        monkeypatch.setattr("csc_runner.sandbox.os.path.exists", lambda p: True)
+        monkeypatch.setattr("csc_runner.sandbox.subprocess.run", _mock_bwrap_failure)
+        config = _config()
+        with pytest.raises(SandboxError, match="deployment-modes"):
+            _verify_bwrap_capabilities(config)
+
+    def test_bwrap_smoke_failure_includes_stderr(self, monkeypatch):
+        monkeypatch.setattr("csc_runner.sandbox.os.path.exists", lambda p: True)
+        monkeypatch.setattr("csc_runner.sandbox.subprocess.run", _mock_bwrap_failure)
+        config = _config()
+        with pytest.raises(SandboxError, match="RTM_NEWADDR"):
+            _verify_bwrap_capabilities(config)
+
+    def test_bwrap_smoke_empty_stderr_handled(self, monkeypatch):
+        monkeypatch.setattr("csc_runner.sandbox.os.path.exists", lambda p: True)
+
+        def _fail_no_stderr(*args, **kwargs):
+            return subprocess.CompletedProcess(args=args[0], returncode=1, stdout="", stderr="")
+
+        monkeypatch.setattr("csc_runner.sandbox.subprocess.run", _fail_no_stderr)
+        config = _config()
+        with pytest.raises(SandboxError, match="<no stderr>"):
+            _verify_bwrap_capabilities(config)
+
+    def test_bwrap_probe_uses_usr_bin_true_when_no_bin(self, monkeypatch):
+        """Config with /usr but not /bin should select /usr/bin/true."""
+
+        def _selective_exists(path):
+            if path in ("/usr", "/usr/bin/true"):
+                return True
+            if path == "/bin":
+                return False
+            return True
+
+        monkeypatch.setattr("csc_runner.sandbox.os.path.exists", _selective_exists)
+
+        captured_argv = []
+
+        def _capture_run(argv, **kwargs):
+            captured_argv.extend(argv)
+            return subprocess.CompletedProcess(args=argv, returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr("csc_runner.sandbox.subprocess.run", _capture_run)
+
+        config = _config(readonly_bind_paths=("/usr",))
+        _verify_bwrap_capabilities(config)
+
+        assert "/usr/bin/true" in captured_argv
+        assert "/bin/true" not in captured_argv
+
+    def test_bwrap_probe_no_executable_found(self, monkeypatch):
+        """Config with no usable readonly paths should fail clearly."""
+        monkeypatch.setattr("csc_runner.sandbox.os.path.exists", lambda p: False)
+
+        config = _config(readonly_bind_paths=())
+        with pytest.raises(SandboxError, match="cannot select a probe executable"):
+            _verify_bwrap_capabilities(config)
+
+    def test_bwrap_probe_timeout_handled(self, monkeypatch):
+        monkeypatch.setattr("csc_runner.sandbox.os.path.exists", lambda p: True)
+
+        def _timeout(*args, **kwargs):
+            raise subprocess.TimeoutExpired(cmd=args[0], timeout=5)
+
+        monkeypatch.setattr("csc_runner.sandbox.subprocess.run", _timeout)
+
+        config = _config()
+        with pytest.raises(SandboxError, match="timed out"):
+            _verify_bwrap_capabilities(config)
+
+
+# ---------------------------------------------------------------------------
+# verify_hardened_runtime (full preflight)
+# ---------------------------------------------------------------------------
+
+
 class TestVerifyHardenedRuntime:
     def test_full_preflight(self, monkeypatch):
         monkeypatch.setattr("csc_runner.sandbox.platform.system", lambda: "Linux")
         monkeypatch.setattr("csc_runner.sandbox.shutil.which", lambda name: f"/usr/bin/{name}")
+        monkeypatch.setattr("csc_runner.sandbox.subprocess.run", _mock_bwrap_success)
+        monkeypatch.setattr("csc_runner.sandbox.os.path.exists", lambda p: True)
         monkeypatch.setattr(
             "csc_runner.sandbox.socket.if_nameindex",
             lambda: [(1, "lo")],
@@ -249,6 +364,8 @@ class TestVerifyHardenedRuntime:
     def test_network_check_skippable(self, monkeypatch):
         monkeypatch.setattr("csc_runner.sandbox.platform.system", lambda: "Linux")
         monkeypatch.setattr("csc_runner.sandbox.shutil.which", lambda name: f"/usr/bin/{name}")
+        monkeypatch.setattr("csc_runner.sandbox.subprocess.run", _mock_bwrap_success)
+        monkeypatch.setattr("csc_runner.sandbox.os.path.exists", lambda p: True)
         config = _config(require_network_disabled=False)
         verify_hardened_runtime(config)
 
@@ -479,7 +596,7 @@ class TestBuildHardenedCommand:
             self._build(tmp_path, read_bind_prefixes=["relative/path"])
 
     def test_system_paths_readonly(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("os.path.exists", lambda p: True)
+        monkeypatch.setattr("csc_runner.sandbox.os.path.exists", lambda p: True)
         cwd = str(tmp_path / "workspace")
         os.makedirs(cwd, exist_ok=True)
         config = _config(readonly_bind_paths=("/usr", "/lib"))

@@ -2,7 +2,7 @@
 
 Builds a hardened launcher argv using Linux-native tools:
 - bubblewrap (bwrap): mount/pid/network namespace isolation
-- setpriv: --no-new-privs always; privilege drop when configured
+- setpriv: --no-new-privs (always), privilege drop (when configured)
 - prlimit: resource limits (CPU, address space, processes, file size)
 
 No Python preexec_fn. The security boundary is the kernel, not
@@ -49,6 +49,7 @@ import os
 import platform
 import shutil
 import socket
+import subprocess
 from dataclasses import dataclass, field
 
 _GLOB_META = frozenset("*?[")
@@ -300,6 +301,12 @@ def _resolve_writable_roots(write_bind_prefixes: list[str]) -> list[str]:
 
 _REQUIRED_TOOLS: tuple[str, ...] = ("bwrap", "setpriv", "prlimit")
 
+# Candidate probe executables, checked in order against bound paths.
+_PROBE_EXECUTABLES: tuple[tuple[str, str], ...] = (
+    ("/bin", "/bin/true"),
+    ("/usr", "/usr/bin/true"),
+)
+
 
 def verify_platform() -> None:
     """Verify the platform is Linux. Raises SandboxError otherwise."""
@@ -343,6 +350,95 @@ def verify_network_disabled() -> None:
         raise SandboxError(f"network not disabled: found non-loopback interfaces: {', '.join(non_loopback)}")
 
 
+def _verify_bwrap_capabilities(config: SandboxConfig) -> None:
+    """Smoke test: verify bwrap can create the namespaces hardened mode needs.
+
+    Runs a representative bwrap probe using the same readonly system
+    paths as the real hardened launcher. Exercises namespace creation
+    (mount, network, pid). If the runtime blocks namespace operations
+    (common on AppArmor-restricted Ubuntu or confined containers), this
+    fails early with an actionable error instead of failing later during
+    contract execution.
+
+    The probe executable is selected from the configured readonly bind
+    paths to avoid false failures when the config does not include /bin
+    but does include /usr.
+
+    Timeout: 5 seconds. This is a preflight check, not a performance test.
+    """
+    # Build probe argv using the same readonly binds as real execution.
+    probe_argv = ["bwrap"]
+
+    bound_paths: set[str] = set()
+    for path in config.readonly_bind_paths:
+        if os.path.exists(path):
+            probe_argv.extend(["--ro-bind", path, path])
+            bound_paths.add(path)
+
+    probe_argv.extend(
+        [
+            "--proc",
+            "/proc",
+            "--dev",
+            "/dev",
+            "--unshare-net",
+            "--unshare-pid",
+            "--new-session",
+            "--die-with-parent",
+            "--",
+        ]
+    )
+
+    # Select probe executable from bound paths.
+    probe_exe = None
+    for parent_path, exe_path in _PROBE_EXECUTABLES:
+        if parent_path in bound_paths and os.path.exists(exe_path):
+            probe_exe = exe_path
+            break
+
+    if probe_exe is None:
+        raise SandboxError(
+            "hardened mode runtime check failed: cannot select a probe "
+            "executable from the configured readonly_bind_paths. "
+            "Ensure at least /bin or /usr is in readonly_bind_paths and "
+            "contains 'true'. "
+            "See docs/deployment-modes.md for runtime prerequisites."
+        )
+
+    probe_argv.append(probe_exe)
+
+    try:
+        result = subprocess.run(
+            probe_argv,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except subprocess.TimeoutExpired:
+        raise SandboxError(
+            "hardened mode runtime check failed: bubblewrap capability "
+            "probe timed out (5s). "
+            "See docs/deployment-modes.md for runtime prerequisites."
+        )
+    except FileNotFoundError:
+        raise SandboxError(
+            "hardened mode runtime check failed: bwrap not found "
+            "during capability probe (passed tool check but not executable). "
+            "See docs/deployment-modes.md for runtime prerequisites."
+        )
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip() or "<no stderr>"
+        raise SandboxError(
+            "hardened mode runtime check failed: bubblewrap could not "
+            "create the required namespace sandbox. "
+            "Common causes: AppArmor-restricted Ubuntu, container runtime "
+            "confinement, disabled user namespaces, restrictive seccomp. "
+            f"bwrap stderr: {stderr}. "
+            "See docs/deployment-modes.md for runtime prerequisites."
+        )
+
+
 def verify_hardened_runtime(config: SandboxConfig) -> None:
     """Run all pre-flight checks for hardened mode.
 
@@ -350,7 +446,8 @@ def verify_hardened_runtime(config: SandboxConfig) -> None:
     1. Config values are valid.
     2. Platform is Linux.
     3. Required tools are on PATH (bwrap, setpriv, prlimit).
-    4. Network sanity check (if config.require_network_disabled).
+    4. bwrap can create namespaces in this runtime.
+    5. Network sanity check (if config.require_network_disabled).
 
     Call once at startup before spawning any sandbox subprocess.
     Raises SandboxError on any failure.
@@ -358,6 +455,7 @@ def verify_hardened_runtime(config: SandboxConfig) -> None:
     validate_config(config)
     verify_platform()
     verify_tools()
+    _verify_bwrap_capabilities(config)
 
     if config.require_network_disabled:
         verify_network_disabled()
