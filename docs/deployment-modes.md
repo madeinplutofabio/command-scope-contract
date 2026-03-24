@@ -58,9 +58,22 @@ csc run contract.json policy.yaml \
 ### Requirements
 
 - Linux only (rejects other platforms at startup)
-- `bwrap`, `setpriv`, `prlimit` must be on PATH
-- Receipt signing is mandatory (`--sign --signing-key --key-id`)
-- Container should be started with `--network=none` for host-level isolation
+- `bwrap`, `setpriv`, and `prlimit` must be on `PATH`
+- Receipt signing is mandatory in hardened mode (`--sign --signing-key --key-id`)
+- For the tested containerized deployment shape, the outer container should be started with `--network=none` as host-level defense in depth
+
+### Runtime Prerequisites
+
+Hardened mode requires a **compatible Linux runtime**. Not all Linux environments support the namespace operations that bubblewrap requires.
+
+- **User namespaces** must be available to the runtime
+- **Some Ubuntu/AppArmor-restricted environments** may block `bwrap --unshare-net` with errors such as `RTM_NEWADDR: Operation not permitted`
+- **Restrictive seccomp profiles** may prevent namespace creation
+- **Container runtimes** must allow the namespace features bubblewrap uses; not all Docker/Podman configurations do so by default
+
+If `bwrap --unshare-net` is blocked by the host or runtime, that environment is **not currently supported** for hardened mode.
+
+The shipped Docker image and CI workflow document the tested configuration. Deployments outside that configuration require operator verification.
 
 ### What It Provides
 
@@ -147,7 +160,7 @@ The pilot claim is bounded: **Linux, filesystem-bounded local/CI execution, no n
 
 ### Container runtime dependency
 
-bubblewrap requires the host/container runtime to support the namespace features it uses. Restrictive seccomp profiles or disabled user namespaces can prevent bwrap from functioning. The hardened pilot is tested against the shipped container image only.
+bubblewrap requires the host/container runtime to support the namespace features it uses. Some Ubuntu/AppArmor-restricted environments, restrictive seccomp profiles, or disabled user namespaces can prevent bwrap from functioning. If `bwrap --unshare-net` fails, that environment is not supported for hardened mode. The hardened pilot is tested against the shipped container image and CI workflow only.
 
 ### Approval replay prevention is process-local
 
@@ -161,4 +174,4 @@ A signed receipt proves integrity and signer identity. It does not by itself pro
 
 > CSC hardened mode is safe enough for bounded production use in Linux-based, filesystem-bounded local/CI execution workflows without network access, under the documented trust assumptions and deployment constraints.
 
-This claim applies only to the tested container image running in hardened mode with `--network=none`. It does not extend to arbitrary Linux hosts, other operating systems, or deployment configurations not covered by the integration test suite.
+This claim applies only to the tested container image and CI workflow configuration. It does not extend to arbitrary Linux hosts, other operating systems, or deployment configurations not covered by the integration test suite.
