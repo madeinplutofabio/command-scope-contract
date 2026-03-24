@@ -1,0 +1,113 @@
+[
+  {
+    "id": "receipt-valid-success-001",
+    "description": "minimal valid success receipt with required fields",
+    "spec_refs": ["spec:10", "spec:10.1", "schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "receipt_version": "csc.receipt.v0.1",
+      "contract_id": "receipt-valid-success-001",
+      "execution_id": "exec-001",
+      "contract_sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "status": "success",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:05Z",
+      "exit_code": 0,
+      "stdout_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "policy_profile": "dev-readonly"
+    },
+    "valid": true
+  },
+  {
+    "id": "receipt-valid-full-fields-002",
+    "description": "valid receipt with all optional fields populated",
+    "spec_refs": ["spec:10", "spec:10.1", "schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "receipt_version": "csc.receipt.v0.1",
+      "contract_id": "receipt-valid-full-002",
+      "execution_id": "exec-002",
+      "contract_sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "status": "success",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:05Z",
+      "exit_code": 0,
+      "stdout_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "policy_profile": "dev-readonly",
+      "policy_schema_version": "csc.policy.v0.1",
+      "policy_sha256": "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3",
+      "runner_version": "0.1.0",
+      "execution_mode": "local",
+      "completed_command_ids": ["cmd_1"],
+      "failed_command_id": null,
+      "effect_summary": {
+        "files_written": 0,
+        "network_used": false,
+        "secrets_used": 0
+      }
+    },
+    "valid": true
+  },
+  {
+    "id": "receipt-valid-failed-003",
+    "description": "valid failed receipt with error details",
+    "spec_refs": ["spec:10", "spec:8", "schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "receipt_version": "csc.receipt.v0.1",
+      "contract_id": "receipt-valid-failed-003",
+      "execution_id": "exec-003",
+      "contract_sha256": "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+      "status": "failed",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:02Z",
+      "exit_code": 1,
+      "stdout_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_hash": "sha256:7d1a54127b222502f5b79b5fb0803061152a44f92b37e23c6527baf665d4da9a",
+      "policy_profile": "dev-test",
+      "completed_command_ids": ["cmd_1"],
+      "failed_command_id": "cmd_2",
+      "error": "command exited with status 1"
+    },
+    "valid": true
+  },
+  {
+    "id": "receipt-valid-blocked-004",
+    "description": "valid blocked receipt — denied before execution",
+    "spec_refs": ["spec:10", "spec:9", "schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "receipt_version": "csc.receipt.v0.1",
+      "contract_id": "receipt-valid-blocked-004",
+      "execution_id": "exec-004",
+      "contract_sha256": "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5",
+      "status": "blocked",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:00Z",
+      "policy_profile": "dev-readonly",
+      "runner_version": "0.1.0",
+      "execution_mode": "local"
+    },
+    "valid": true
+  },
+  {
+    "id": "receipt-valid-hardened-mode-005",
+    "description": "valid receipt from hardened mode with sandbox and signing",
+    "spec_refs": ["spec:10", "schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "receipt_version": "csc.receipt.v0.1",
+      "contract_id": "receipt-valid-hardened-005",
+      "execution_id": "exec-005",
+      "contract_sha256": "e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6",
+      "status": "success",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:10Z",
+      "exit_code": 0,
+      "stdout_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "policy_profile": "hardened-ci",
+      "execution_mode": "hardened",
+      "sandbox_profile_id": "sandbox-linux-amd64-v1",
+      "signing_key_id": "key-prod-2026-03"
+    },
+    "valid": true
+  }
+]

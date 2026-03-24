@@ -1,0 +1,930 @@
+[
+  {
+    "id": "decision-allow-git-status-001",
+    "description": "simple git status allowed under dev-readonly",
+    "spec_refs": [
+      "spec:6",
+      "spec:7",
+      "spec:9"
+    ],
+    "contract": {
+      "version": "csc.v0.1",
+      "contract_id": "decision-allow-git-status-001",
+      "intent": "observe repo",
+      "actor": {
+        "agent_id": "a-1",
+        "session_id": "s-1",
+        "initiating_user": "u-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {
+            "argv": [
+              "git",
+              "status"
+            ]
+          },
+          "cwd": "/workspace/repo",
+          "read_paths": [
+            "/workspace/repo/**"
+          ],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "check repo state"
+    },
+    "policy": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "dev-readonly",
+      "allow_commands": [
+        "git",
+        "ls",
+        "cat"
+      ],
+      "deny_argv_prefixes": [
+        [
+          "bash",
+          "-lc"
+        ]
+      ],
+      "allowed_effect_types": [
+        "observe"
+      ],
+      "allowed_risk_classes": [
+        "low"
+      ],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "require_write_paths_empty": true,
+      "allowed_cwd_prefixes": [
+        "/workspace"
+      ],
+      "allowed_read_prefixes": [
+        "/workspace"
+      ]
+    },
+    "expected_decision": "allow",
+    "expected_reason_codes": [
+      "ALLOW"
+    ],
+    "expected_classified_effects": [
+      {
+        "command_id": "cmd_1",
+        "effect_type": "observe"
+      }
+    ]
+  },
+  {
+    "id": "decision-deny-command-not-allowed-002",
+    "description": "rm denied \u00e2\u20ac\u201d not in allow_commands",
+    "spec_refs": [
+      "spec:7",
+      "spec:9.1"
+    ],
+    "contract": {
+      "version": "csc.v0.1",
+      "contract_id": "decision-deny-cmd-002",
+      "intent": "delete files",
+      "actor": {
+        "agent_id": "a-1",
+        "session_id": "s-1",
+        "initiating_user": "u-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {
+            "argv": [
+              "rm",
+              "-rf",
+              "/workspace/tmp"
+            ]
+          },
+          "cwd": "/workspace",
+          "read_paths": [],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "cleanup"
+    },
+    "policy": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "dev-readonly",
+      "allow_commands": [
+        "git",
+        "ls",
+        "cat"
+      ],
+      "deny_argv_prefixes": [],
+      "allowed_effect_types": [
+        "observe"
+      ],
+      "allowed_risk_classes": [
+        "low"
+      ],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "require_write_paths_empty": true,
+      "allowed_cwd_prefixes": [
+        "/workspace"
+      ],
+      "allowed_read_prefixes": [
+        "/workspace"
+      ]
+    },
+    "expected_decision": "deny",
+    "expected_reason_codes": [
+      "COMMAND_NOT_ALLOWED"
+    ],
+    "expected_classified_effects": []
+  },
+  {
+    "id": "decision-deny-argv-prefix-003",
+    "description": "python3 -c denied by argv prefix rule",
+    "spec_refs": [
+      "spec:5.4",
+      "spec:9.1"
+    ],
+    "contract": {
+      "version": "csc.v0.1",
+      "contract_id": "decision-deny-argv-003",
+      "intent": "run inline python",
+      "actor": {
+        "agent_id": "a-1",
+        "session_id": "s-1",
+        "initiating_user": "u-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {
+            "argv": [
+              "python3",
+              "-c",
+              "print('x')"
+            ]
+          },
+          "cwd": "/workspace",
+          "read_paths": [
+            "/workspace/**"
+          ],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "policy": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "dev-readonly",
+      "allow_commands": [
+        "git",
+        "python3",
+        "cat"
+      ],
+      "deny_argv_prefixes": [
+        [
+          "python3",
+          "-c"
+        ],
+        [
+          "bash",
+          "-lc"
+        ]
+      ],
+      "allowed_effect_types": [
+        "observe"
+      ],
+      "allowed_risk_classes": [
+        "low"
+      ],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "require_write_paths_empty": true,
+      "allowed_cwd_prefixes": [
+        "/workspace"
+      ],
+      "allowed_read_prefixes": [
+        "/workspace"
+      ]
+    },
+    "expected_decision": "deny",
+    "expected_reason_codes": [
+      "ARGV_PREFIX_DENIED"
+    ],
+    "expected_classified_effects": []
+  },
+  {
+    "id": "decision-deny-risk-class-004",
+    "description": "critical risk class denied by low-only policy",
+    "spec_refs": [
+      "spec:5.5",
+      "spec:9.1"
+    ],
+    "contract": {
+      "version": "csc.v0.1",
+      "contract_id": "decision-deny-risk-004",
+      "intent": "risky operation",
+      "actor": {
+        "agent_id": "a-1",
+        "session_id": "s-1",
+        "initiating_user": "u-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {
+            "argv": [
+              "git",
+              "status"
+            ]
+          },
+          "cwd": "/workspace",
+          "read_paths": [
+            "/workspace/**"
+          ],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "critical",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "policy": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "dev-readonly",
+      "allow_commands": [
+        "git"
+      ],
+      "allowed_effect_types": [
+        "observe"
+      ],
+      "allowed_risk_classes": [
+        "low"
+      ],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": [
+        "/workspace"
+      ],
+      "allowed_read_prefixes": [
+        "/workspace"
+      ]
+    },
+    "expected_decision": "deny",
+    "expected_reason_codes": [
+      "RISK_CLASS_NOT_ALLOWED"
+    ],
+    "expected_classified_effects": []
+  },
+  {
+    "id": "decision-deny-network-exceeds-005",
+    "description": "full network denied by deny-only policy",
+    "spec_refs": [
+      "spec:5.4",
+      "spec:9.1"
+    ],
+    "contract": {
+      "version": "csc.v0.1",
+      "contract_id": "decision-deny-network-005",
+      "intent": "test",
+      "actor": {
+        "agent_id": "a-1",
+        "session_id": "s-1",
+        "initiating_user": "u-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {
+            "argv": [
+              "git",
+              "status"
+            ]
+          },
+          "cwd": "/workspace",
+          "read_paths": [
+            "/workspace/**"
+          ],
+          "write_paths": [],
+          "network": "full",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "policy": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "dev-readonly",
+      "allow_commands": [
+        "git"
+      ],
+      "allowed_effect_types": [
+        "observe"
+      ],
+      "allowed_risk_classes": [
+        "low"
+      ],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": [
+        "/workspace"
+      ],
+      "allowed_read_prefixes": [
+        "/workspace"
+      ]
+    },
+    "expected_decision": "deny",
+    "expected_reason_codes": [
+      "NETWORK_EXCEEDS_POLICY"
+    ],
+    "expected_classified_effects": [
+      {
+        "command_id": "cmd_1",
+        "effect_type": "observe"
+      }
+    ]
+  },
+  {
+    "id": "decision-deny-write-paths-not-empty-006",
+    "description": "write paths denied under require_write_paths_empty policy",
+    "spec_refs": [
+      "spec:5.4",
+      "spec:9.1"
+    ],
+    "contract": {
+      "version": "csc.v0.1",
+      "contract_id": "decision-deny-writes-006",
+      "intent": "test",
+      "actor": {
+        "agent_id": "a-1",
+        "session_id": "s-1",
+        "initiating_user": "u-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {
+            "argv": [
+              "git",
+              "status"
+            ]
+          },
+          "cwd": "/workspace",
+          "read_paths": [
+            "/workspace/**"
+          ],
+          "write_paths": [
+            "/workspace/out.txt"
+          ],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "policy": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "dev-readonly",
+      "allow_commands": [
+        "git"
+      ],
+      "allowed_effect_types": [
+        "observe"
+      ],
+      "allowed_risk_classes": [
+        "low"
+      ],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "require_write_paths_empty": true,
+      "allowed_cwd_prefixes": [
+        "/workspace"
+      ],
+      "allowed_read_prefixes": [
+        "/workspace"
+      ]
+    },
+    "expected_decision": "deny",
+    "expected_reason_codes": [
+      "WRITE_PATHS_NOT_EMPTY"
+    ],
+    "expected_classified_effects": [
+      {
+        "command_id": "cmd_1",
+        "effect_type": "observe"
+      }
+    ]
+  },
+  {
+    "id": "decision-deny-cwd-not-allowed-007",
+    "description": "cwd outside allowed prefixes denied",
+    "spec_refs": [
+      "spec:5.4",
+      "spec:9.1"
+    ],
+    "contract": {
+      "version": "csc.v0.1",
+      "contract_id": "decision-deny-cwd-007",
+      "intent": "test",
+      "actor": {
+        "agent_id": "a-1",
+        "session_id": "s-1",
+        "initiating_user": "u-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {
+            "argv": [
+              "git",
+              "status"
+            ]
+          },
+          "cwd": "/tmp/evil",
+          "read_paths": [
+            "/workspace/**"
+          ],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "policy": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "dev-readonly",
+      "allow_commands": [
+        "git"
+      ],
+      "allowed_effect_types": [
+        "observe"
+      ],
+      "allowed_risk_classes": [
+        "low"
+      ],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": [
+        "/workspace"
+      ],
+      "allowed_read_prefixes": [
+        "/workspace"
+      ]
+    },
+    "expected_decision": "deny",
+    "expected_reason_codes": [
+      "CWD_NOT_ALLOWED"
+    ],
+    "expected_classified_effects": [
+      {
+        "command_id": "cmd_1",
+        "effect_type": "observe"
+      }
+    ]
+  },
+  {
+    "id": "decision-deny-read-scope-008",
+    "description": "read path outside allowed prefixes denied",
+    "spec_refs": [
+      "spec:5.4",
+      "spec:9.1"
+    ],
+    "contract": {
+      "version": "csc.v0.1",
+      "contract_id": "decision-deny-read-008",
+      "intent": "test",
+      "actor": {
+        "agent_id": "a-1",
+        "session_id": "s-1",
+        "initiating_user": "u-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {
+            "argv": [
+              "git",
+              "status"
+            ]
+          },
+          "cwd": "/workspace",
+          "read_paths": [
+            "/etc/shadow"
+          ],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "policy": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "dev-readonly",
+      "allow_commands": [
+        "git"
+      ],
+      "allowed_effect_types": [
+        "observe"
+      ],
+      "allowed_risk_classes": [
+        "low"
+      ],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": [
+        "/workspace"
+      ],
+      "allowed_read_prefixes": [
+        "/workspace"
+      ]
+    },
+    "expected_decision": "deny",
+    "expected_reason_codes": [
+      "READ_SCOPE_DENIED"
+    ],
+    "expected_classified_effects": [
+      {
+        "command_id": "cmd_1",
+        "effect_type": "observe"
+      }
+    ]
+  },
+  {
+    "id": "decision-deny-effect-type-009",
+    "description": "deploy effect type denied by observe-only policy",
+    "spec_refs": [
+      "spec:6",
+      "spec:9.1"
+    ],
+    "contract": {
+      "version": "csc.v0.1",
+      "contract_id": "decision-deny-effect-009",
+      "intent": "deploy",
+      "actor": {
+        "agent_id": "a-1",
+        "session_id": "s-1",
+        "initiating_user": "u-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {
+            "argv": [
+              "git",
+              "push"
+            ]
+          },
+          "cwd": "/workspace",
+          "read_paths": [
+            "/workspace/**"
+          ],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "deploy"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "policy": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "dev-readonly",
+      "allow_commands": [
+        "git"
+      ],
+      "allowed_effect_types": [
+        "observe"
+      ],
+      "allowed_risk_classes": [
+        "low"
+      ],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": [
+        "/workspace"
+      ],
+      "allowed_read_prefixes": [
+        "/workspace"
+      ]
+    },
+    "expected_decision": "deny",
+    "expected_reason_codes": [
+      "EFFECT_TYPE_NOT_ALLOWED"
+    ],
+    "expected_classified_effects": [
+      {
+        "command_id": "cmd_1",
+        "effect_type": "deploy"
+      }
+    ]
+  },
+  {
+    "id": "decision-deny-timeout-exceeds-010",
+    "description": "timeout exceeding policy max denied",
+    "spec_refs": [
+      "spec:5.4",
+      "spec:9.1"
+    ],
+    "contract": {
+      "version": "csc.v0.1",
+      "contract_id": "decision-deny-timeout-010",
+      "intent": "test",
+      "actor": {
+        "agent_id": "a-1",
+        "session_id": "s-1",
+        "initiating_user": "u-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {
+            "argv": [
+              "git",
+              "status"
+            ]
+          },
+          "cwd": "/workspace",
+          "read_paths": [
+            "/workspace/**"
+          ],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 9999,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test"
+    },
+    "policy": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "dev-readonly",
+      "allow_commands": [
+        "git"
+      ],
+      "allowed_effect_types": [
+        "observe"
+      ],
+      "allowed_risk_classes": [
+        "low"
+      ],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": [
+        "/workspace"
+      ],
+      "allowed_read_prefixes": [
+        "/workspace"
+      ]
+    },
+    "expected_decision": "deny",
+    "expected_reason_codes": [
+      "TIMEOUT_EXCEEDS_POLICY"
+    ],
+    "expected_classified_effects": [
+      {
+        "command_id": "cmd_1",
+        "effect_type": "observe"
+      }
+    ]
+  },
+  {
+    "id": "decision-approval-human-required-011",
+    "description": "human_required approval mode triggers needs_approval",
+    "spec_refs": [
+      "spec:5.6",
+      "spec:9.1"
+    ],
+    "contract": {
+      "version": "csc.v0.1",
+      "contract_id": "decision-approval-human-011",
+      "intent": "test",
+      "actor": {
+        "agent_id": "a-1",
+        "session_id": "s-1",
+        "initiating_user": "u-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {
+            "argv": [
+              "git",
+              "status"
+            ]
+          },
+          "cwd": "/workspace",
+          "read_paths": [
+            "/workspace/**"
+          ],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "human_required",
+      "justification": "test"
+    },
+    "policy": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "dev-readonly",
+      "allow_commands": [
+        "git"
+      ],
+      "allowed_effect_types": [
+        "observe"
+      ],
+      "allowed_risk_classes": [
+        "low"
+      ],
+      "max_timeout_sec": 30,
+      "network": "deny",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": [
+        "/workspace"
+      ],
+      "allowed_read_prefixes": [
+        "/workspace"
+      ]
+    },
+    "expected_decision": "needs_approval",
+    "expected_reason_codes": [
+      "APPROVAL_REQUIRED"
+    ],
+    "expected_classified_effects": [
+      {
+        "command_id": "cmd_1",
+        "effect_type": "observe"
+      }
+    ]
+  },
+  {
+    "id": "decision-approval-classified-effect-012",
+    "description": "curl to Stripe classified as financial_action triggers approval",
+    "spec_refs": [
+      "spec:6",
+      "spec:9.1"
+    ],
+    "contract": {
+      "version": "csc.v0.1",
+      "contract_id": "decision-approval-stripe-012",
+      "intent": "charge card",
+      "actor": {
+        "agent_id": "a-1",
+        "session_id": "s-1",
+        "initiating_user": "u-1",
+        "delegation_scope": "test"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {
+            "argv": [
+              "curl",
+              "-X",
+              "POST",
+              "https://api.sandbox.stripe.com/v1/charges"
+            ]
+          },
+          "cwd": "/workspace",
+          "read_paths": [
+            "/workspace/**"
+          ],
+          "write_paths": [],
+          "network": "allowlisted",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 30,
+          "proposed_effect_type": "fetch_external"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "test payment"
+    },
+    "policy": {
+      "policy_schema_version": "csc.policy.v0.1",
+      "name": "regulated",
+      "allow_commands": [
+        "curl",
+        "cat",
+        "jq"
+      ],
+      "deny_argv_prefixes": [],
+      "allowed_effect_types": [
+        "observe",
+        "fetch_external"
+      ],
+      "manual_approval_for_classified_effect_types": [
+        "financial_action"
+      ],
+      "allowed_risk_classes": [
+        "low",
+        "medium"
+      ],
+      "max_timeout_sec": 60,
+      "network": "allowlisted",
+      "allow_secret_refs": false,
+      "allowed_cwd_prefixes": [
+        "/workspace"
+      ],
+      "allowed_read_prefixes": [
+        "/workspace"
+      ],
+      "allowed_egress_hosts": [
+        "api.sandbox.stripe.com"
+      ]
+    },
+    "expected_decision": "needs_approval",
+    "expected_reason_codes": [
+      "APPROVAL_REQUIRED"
+    ],
+    "expected_classified_effects": [
+      {
+        "command_id": "cmd_1",
+        "effect_type": "financial_action"
+      }
+    ]
+  }
+]

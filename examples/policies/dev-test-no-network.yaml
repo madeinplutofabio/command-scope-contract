@@ -1,3 +1,4 @@
+policy_schema_version: csc.policy.v0.1
 name: dev-test-no-network
 allow_commands:
   - git
@@ -27,6 +28,7 @@ allowed_risk_classes:
 max_timeout_sec: 600
 network: deny
 allow_secret_refs: false
+require_write_paths_empty: false
 allowed_cwd_prefixes:
   - /workspace
 allowed_read_prefixes:

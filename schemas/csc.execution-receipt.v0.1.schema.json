@@ -15,6 +15,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "receipt_version",
     "contract_id",
     "execution_id",
     "contract_sha256",
@@ -23,7 +24,23 @@
     "ended_at",
     "policy_profile"
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "enum": ["success", "failed"] } },
+        "required": ["status"]
+      },
+      "then": {
+        "required": ["exit_code", "stdout_hash", "stderr_hash"]
+      }
+    }
+  ],
   "properties": {
+    "receipt_version": {
+      "type": "string",
+      "const": "csc.receipt.v0.1",
+      "description": "Receipt schema identifier. Parsers MUST use this field to select the correct schema for validation and interpretation."
+    },
     "contract_id": { "type": "string", "minLength": 1 },
     "execution_id": { "type": "string", "minLength": 1 },
     "contract_sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
@@ -33,6 +50,14 @@
     "exit_code": { "type": "integer" },
     "stdout_hash": { "type": "string", "pattern": "^sha256:[A-Fa-f0-9]{64}$" },
     "stderr_hash": { "type": "string", "pattern": "^sha256:[A-Fa-f0-9]{64}$" },
+    "stdout_truncated": {
+      "type": "boolean",
+      "description": "True when stdout capture exceeded the configured byte cap. When true, stdout_hash covers only the captured prefix, not the full stream. Absence of this field means the full stream was captured."
+    },
+    "stderr_truncated": {
+      "type": "boolean",
+      "description": "True when stderr capture exceeded the configured byte cap. When true, stderr_hash covers only the captured prefix, not the full stream. Absence of this field means the full stream was captured."
+    },
     "artifacts": {
       "type": "array",
       "items": {
@@ -46,6 +71,36 @@
       }
     },
     "policy_profile": { "type": "string", "minLength": 1 },
+    "policy_schema_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Policy schema identifier used to validate the policy that produced the decision."
+    },
+    "policy_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$",
+      "description": "SHA-256 hash of the canonicalized policy artifact that produced the decision."
+    },
+    "runner_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Version of the runner that executed the contract."
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": ["local", "hardened"],
+      "description": "Deployment mode the runner was operating in."
+    },
+    "sandbox_profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the sandbox profile used. Applicable in hardened mode only."
+    },
+    "signing_key_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the key used to sign this receipt. Present only when receipt signing is enabled."
+    },
     "effect_summary": {
       "type": "object",
       "additionalProperties": false,
@@ -57,6 +112,7 @@
     },
     "completed_command_ids": {
       "type": "array",
+      "uniqueItems": true,
       "items": { "type": "string", "minLength": 1 }
     },
     "failed_command_id": { "type": ["string", "null"] },

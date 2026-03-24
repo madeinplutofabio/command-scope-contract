@@ -1,3 +1,4 @@
+policy_schema_version: csc.policy.v0.1
 name: dev-readonly
 allow_commands:
   - git

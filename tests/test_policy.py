@@ -187,3 +187,129 @@ def test_path_traversal_denied():
     result = evaluate_contract(contract, DEV_READONLY)
     assert result.decision == "deny"
     assert "cwd not allowed" in result.reasons[0]
+
+
+# --- Reason-code tests ---
+
+
+def test_reason_codes_allow():
+    cmd = _make_exec_command(["git", "status"])
+    contract = _make_contract([cmd])
+    result = evaluate_contract(contract, DEV_READONLY)
+    assert result.decision == "allow"
+    assert result.reason_codes == ["ALLOW"]
+
+
+def test_reason_codes_deny_command_not_allowed():
+    cmd = _make_exec_command(["rm", "-rf", "/"])
+    contract = _make_contract([cmd])
+    result = evaluate_contract(contract, DEV_READONLY)
+    assert result.decision == "deny"
+    assert result.reason_codes == ["COMMAND_NOT_ALLOWED"]
+
+
+def test_reason_codes_deny_argv_prefix_denied():
+    cmd = _make_exec_command(["python3", "-c", "print('x')"])
+    contract = _make_contract([cmd])
+    result = evaluate_contract(contract, DEV_READONLY)
+    assert result.decision == "deny"
+    assert result.reason_codes == ["ARGV_PREFIX_DENIED"]
+
+
+def test_reason_codes_deny_risk_class_not_allowed():
+    cmd = _make_exec_command(["git", "status"])
+    contract = _make_contract([cmd], risk_class="critical")
+    result = evaluate_contract(contract, DEV_READONLY)
+    assert result.decision == "deny"
+    assert result.reason_codes == ["RISK_CLASS_NOT_ALLOWED"]
+
+
+def test_reason_codes_deny_network_exceeds_policy():
+    cmd = _make_exec_command(["git", "status"], network="full")
+    contract = _make_contract([cmd])
+    result = evaluate_contract(contract, DEV_READONLY)
+    assert result.decision == "deny"
+    assert result.reason_codes == ["NETWORK_EXCEEDS_POLICY"]
+
+
+def test_reason_codes_deny_write_paths_not_empty():
+    cmd = _make_exec_command(
+        ["git", "status"],
+        write_paths=["/workspace/repo/out.txt"],
+    )
+    contract = _make_contract([cmd])
+    result = evaluate_contract(contract, DEV_READONLY)
+    assert result.decision == "deny"
+    assert result.reason_codes == ["WRITE_PATHS_NOT_EMPTY"]
+
+
+def test_reason_codes_deny_cwd_not_allowed():
+    cmd = _make_exec_command(["git", "status"], cwd="/tmp/evil")
+    contract = _make_contract([cmd])
+    result = evaluate_contract(contract, DEV_READONLY)
+    assert result.decision == "deny"
+    assert result.reason_codes == ["CWD_NOT_ALLOWED"]
+
+
+def test_reason_codes_deny_read_scope_denied():
+    cmd = _make_exec_command(
+        ["git", "status"],
+        read_paths=["/etc/shadow"],
+    )
+    contract = _make_contract([cmd])
+    result = evaluate_contract(contract, DEV_READONLY)
+    assert result.decision == "deny"
+    assert result.reason_codes == ["READ_SCOPE_DENIED"]
+
+
+def test_reason_codes_deny_effect_type_not_allowed():
+    cmd = _make_exec_command(
+        ["git", "push"],
+        proposed_effect_type="deploy",
+    )
+    contract = _make_contract([cmd])
+    result = evaluate_contract(contract, DEV_READONLY)
+    assert result.decision == "deny"
+    assert result.reason_codes == ["EFFECT_TYPE_NOT_ALLOWED"]
+
+
+def test_reason_codes_deny_timeout_exceeds_policy():
+    cmd = _make_exec_command(["git", "status"], timeout_sec=9999)
+    contract = _make_contract([cmd])
+    result = evaluate_contract(contract, DEV_READONLY)
+    assert result.decision == "deny"
+    assert result.reason_codes == ["TIMEOUT_EXCEEDS_POLICY"]
+
+
+def test_reason_codes_approval_required_classified_effect():
+    cmd = _make_exec_command(
+        ["curl", "-X", "POST", "https://api.sandbox.stripe.com/v1/charges"],
+        cwd="/workspace/app",
+        read_paths=["/workspace/app/**"],
+        network="allowlisted",
+        proposed_effect_type="fetch_external",
+    )
+    contract = _make_contract([cmd])
+    result = evaluate_contract(contract, REGULATED_RESTRICTED)
+    assert result.decision == "needs_approval"
+    assert result.reason_codes == ["APPROVAL_REQUIRED"]
+
+
+def test_reason_codes_approval_required_human_mode():
+    cmd = _make_exec_command(["git", "status"])
+    contract = _make_contract([cmd], approval_mode="human_required")
+    result = evaluate_contract(contract, DEV_READONLY)
+    assert result.decision == "needs_approval"
+    assert result.reason_codes == ["APPROVAL_REQUIRED"]
+
+
+def test_reason_codes_deny_path_not_absolute():
+    cmd = _make_exec_command(
+        ["git", "status"],
+        cwd="relative/path",
+        read_paths=["/workspace/repo/**"],
+    )
+    contract = _make_contract([cmd])
+    result = evaluate_contract(contract, DEV_READONLY)
+    assert result.decision == "deny"
+    assert result.reason_codes == ["PATH_NOT_ABSOLUTE"]

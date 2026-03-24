@@ -1,0 +1,190 @@
+[
+  {
+    "id": "contract-valid-minimal-exec-001",
+    "description": "minimal valid contract with single exec command",
+    "spec_refs": ["spec:5.1", "spec:5.3.1", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-minimal-exec-001",
+      "intent": "observe repo state",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "repo-maintainer"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {"argv": ["git", "status"]},
+          "cwd": "/workspace/repo",
+          "read_paths": ["/workspace/repo/**"],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "check repo state"
+    },
+    "valid": true
+  },
+  {
+    "id": "contract-valid-minimal-pipeline-002",
+    "description": "minimal valid contract with single pipeline command",
+    "spec_refs": ["spec:5.3.2", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-minimal-pipeline-002",
+      "intent": "filter output",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "repo-maintainer"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "pipeline": {
+            "segments": [
+              {"argv": ["cat", "/workspace/data.json"]},
+              {"argv": ["jq", ".name"]}
+            ]
+          },
+          "cwd": "/workspace",
+          "read_paths": ["/workspace/**"],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "extract field from JSON"
+    },
+    "valid": true
+  },
+  {
+    "id": "contract-valid-multi-command-003",
+    "description": "valid contract with multiple sequential commands",
+    "spec_refs": ["spec:5.1", "spec:8", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-multi-command-003",
+      "intent": "test and report",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "repo-maintainer"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {"argv": ["git", "status"]},
+          "cwd": "/workspace/repo",
+          "read_paths": ["/workspace/repo/**"],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        },
+        {
+          "id": "cmd_2",
+          "exec": {"argv": ["git", "log", "--oneline", "-5"]},
+          "cwd": "/workspace/repo",
+          "read_paths": ["/workspace/repo/**"],
+          "write_paths": [],
+          "network": "deny",
+          "env_allow": [],
+          "secret_refs": [],
+          "timeout_sec": 10,
+          "proposed_effect_type": "observe"
+        }
+      ],
+      "risk_class": "low",
+      "approval_mode": "policy_only",
+      "justification": "observe repo state"
+    },
+    "valid": true
+  },
+  {
+    "id": "contract-valid-full-fields-004",
+    "description": "valid contract using all optional fields",
+    "spec_refs": ["spec:5.1", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-full-fields-004",
+      "intent": "run tests with network",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "repo-maintainer"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {"argv": ["npm", "test"]},
+          "cwd": "/workspace/app",
+          "read_paths": ["/workspace/app/**"],
+          "write_paths": ["/workspace/app/test-results/**"],
+          "network": "allowlisted",
+          "env_allow": ["CI", "NODE_ENV"],
+          "secret_refs": ["NPM_TOKEN"],
+          "timeout_sec": 300,
+          "proposed_effect_type": "transform_local"
+        }
+      ],
+      "risk_class": "medium",
+      "approval_mode": "human_required",
+      "expected_outputs": ["/workspace/app/test-results/report.xml"],
+      "justification": "run integration test suite"
+    },
+    "valid": true
+  },
+  {
+    "id": "contract-valid-high-risk-005",
+    "description": "valid contract with high risk class and dual control",
+    "spec_refs": ["spec:5.1", "spec:5.5", "spec:5.6", "schema:csc.contract.v0.1"],
+    "input": {
+      "version": "csc.v0.1",
+      "contract_id": "contract-high-risk-005",
+      "intent": "deploy to staging",
+      "actor": {
+        "agent_id": "agent-1",
+        "session_id": "sess-1",
+        "initiating_user": "user-1",
+        "delegation_scope": "deployer"
+      },
+      "commands": [
+        {
+          "id": "cmd_1",
+          "exec": {"argv": ["kubectl", "apply", "-f", "deploy.yaml"]},
+          "cwd": "/workspace/infra",
+          "read_paths": ["/workspace/infra/**"],
+          "write_paths": [],
+          "network": "full",
+          "env_allow": ["KUBECONFIG"],
+          "secret_refs": [],
+          "timeout_sec": 60,
+          "proposed_effect_type": "deploy"
+        }
+      ],
+      "risk_class": "high",
+      "approval_mode": "dual_control_required",
+      "justification": "deploy staging release v2.3.1"
+    },
+    "valid": true
+  }
+]

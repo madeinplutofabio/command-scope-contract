@@ -1,0 +1,173 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+# This workflow handles:
+# 1. Build wheel + sdist
+# 2. Dependency audit
+# 3. Generate SBOM from clean wheel install
+# 4. Publish to PyPI (trusted publishing — handles attestations)
+# 5. Sign release artifacts (sigstore) for GitHub release only
+# 6. Create GitHub release with signed artifacts + SBOM
+#
+# Prerequisites:
+# - PyPI trusted publishing configured for this repository
+#   (environment: pypi, package URL set)
+# - Repository has GitHub Actions allowed to create releases
+#
+# Action versions are not yet pinned to SHA — that is a follow-up task.
+
+jobs:
+  build:
+    name: Build Distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package and audit tool
+        run: |
+          pip install -e .
+          pip install pip-audit
+
+      - name: Run pip-audit
+        run: pip-audit
+
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Install wheel in clean environment
+        run: |
+          python -m venv sbom-env
+          sbom-env/bin/pip install dist/*.whl
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          sbom-env/bin/pip install cyclonedx-bom
+          sbom-env/bin/cyclonedx-py environment \
+            --output sbom.json \
+            --output-format json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
+
+  publish-pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [build, audit]
+    environment:
+      name: pypi
+      url: https://pypi.org/p/csc-runner
+    permissions:
+      id-token: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+
+  sign-for-release:
+    name: Sign Artifacts for GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Sign with sigstore
+        uses: sigstore/gh-action-sigstore-python@v3
+        with:
+          inputs: ./dist/*
+
+      - name: Upload signed artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-signed
+          path: dist/
+
+  github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [publish-pypi, sign-for-release, sbom]
+    permissions:
+      contents: write
+    steps:
+      - name: Download signed artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-signed
+          path: dist/
+
+      - name: Download SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom
+          path: .
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*
+            sbom.json
+          generate_release_notes: true

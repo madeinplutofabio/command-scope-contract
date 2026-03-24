@@ -1,5 +1,11 @@
 # CSC v0.1 Specification
 
+> **Status: FROZEN**
+> This specification and its companion schemas are locked as of v0.1.0 (2026-03-20).
+> Normative changes require an RFC accepted through the process defined in `rfcs/RFC_PROCESS.md`.
+> The normative source of truth for CSC v0.1 is: this spec, the three protocol JSON Schemas (`csc.contract.v0.1.schema.json`, `csc.policy-decision.v0.1.schema.json`, `csc.execution-receipt.v0.1.schema.json`), and the conformance test suite.
+> Everything else — including the reference runner — is implementation behavior unless explicitly promoted into the spec via RFC.
+
 ## 1. Overview
 
 CSC (Command Scope Contract) is a lightweight protocol for bounded shell and CLI execution by AI agents.
@@ -221,6 +227,7 @@ Required fields:
 - `decision`
 - `policy_profile`
 - `reasons`
+- `reason_codes`
 - `expires_at`
 
 Recommended fields:
@@ -234,10 +241,19 @@ Allowed `decision` values:
 - `deny`
 - `needs_approval`
 
+### 9.1 Reason codes
+
+`reason_codes` is an array of machine-readable strings drawn from the reason-code registry (see `docs/reason-codes.md`).
+
+Reason codes are **stable API surface**: new codes may be added in future versions; existing codes MUST NOT be renamed or removed without a spec version bump.
+
+`reasons` (free text) is retained for human readability but is non-normative. Automation, dashboards, and audit systems SHOULD rely on `reason_codes`, not `reasons`.
+
 ## 10. ExecutionReceipt
 
 Required fields:
 
+- `receipt_version`
 - `contract_id`
 - `execution_id`
 - `contract_sha256`
@@ -256,6 +272,12 @@ Recommended fields:
 - `completed_command_ids`
 - `failed_command_id`
 - `error`
+- `policy_schema_version`
+- `policy_sha256`
+- `runner_version`
+- `execution_mode`
+- `sandbox_profile_id`
+- `signing_key_id`
 
 Allowed `status` values:
 
@@ -265,6 +287,10 @@ Allowed `status` values:
 - `expired`
 
 Receipts MUST bind to the exact contract body that was evaluated and executed.
+
+### 10.1 Receipt versioning
+
+`receipt_version` is a required field that identifies the receipt schema version used to produce this receipt. Parsers MUST use this field to select the correct schema for validation and interpretation.
 
 ## 11. Justification handling
 
@@ -328,3 +354,17 @@ Possible extensions include:
 - short-lived secret claims
 - reproducibility bundles
 - richer pipeline artifact controls
+
+## 17. Versioning policy
+
+### 17.1 Spec and schema versioning
+
+The `version` field in a CommandContract identifies the spec version it was authored against. Runners MUST support an explicit set of versions and MUST reject contracts with unrecognized versions with a clear version error. There is no implicit negotiation in v0.x.
+
+### 17.2 Receipt version stability
+
+Receipts are immutable audit artifacts. A receipt emitted under any version MUST remain valid and parseable by all future runner versions. No future spec or schema change may retroactively invalidate an existing receipt. Receipt schema changes that would break existing receipts MUST be introduced as a new receipt version, never as a modification of an existing version.
+
+### 17.3 Changelog discipline
+
+All normative changes to this spec, the schemas, or the conformance suite MUST go through the RFC process defined in `rfcs/RFC_PROCESS.md` and MUST be recorded in `CHANGELOG.md`.

@@ -1,0 +1,148 @@
+[
+  {
+    "id": "receipt-invalid-missing-version-001",
+    "description": "receipt missing required receipt_version",
+    "spec_refs": ["spec:10.1", "schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "contract_id": "receipt-bad-001",
+      "execution_id": "exec-001",
+      "contract_sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "status": "success",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:05Z",
+      "policy_profile": "dev-readonly"
+    },
+    "valid": false
+  },
+  {
+    "id": "receipt-invalid-wrong-version-002",
+    "description": "receipt with wrong receipt_version rejected by const",
+    "spec_refs": ["spec:10.1", "schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "receipt_version": "csc.receipt.v9.9",
+      "contract_id": "receipt-bad-002",
+      "execution_id": "exec-002",
+      "contract_sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "status": "success",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:05Z",
+      "policy_profile": "dev-readonly"
+    },
+    "valid": false
+  },
+  {
+    "id": "receipt-invalid-bad-status-003",
+    "description": "unknown status value rejected by enum",
+    "spec_refs": ["spec:10", "schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "receipt_version": "csc.receipt.v0.1",
+      "contract_id": "receipt-bad-003",
+      "execution_id": "exec-003",
+      "contract_sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "status": "crashed",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:05Z",
+      "policy_profile": "dev-readonly"
+    },
+    "valid": false
+  },
+  {
+    "id": "receipt-invalid-bad-contract-sha256-004",
+    "description": "malformed contract_sha256 rejected by pattern",
+    "spec_refs": ["spec:10", "schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "receipt_version": "csc.receipt.v0.1",
+      "contract_id": "receipt-bad-004",
+      "execution_id": "exec-004",
+      "contract_sha256": "not-a-valid-hex-hash",
+      "status": "success",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:05Z",
+      "policy_profile": "dev-readonly"
+    },
+    "valid": false
+  },
+  {
+    "id": "receipt-invalid-bad-execution-mode-005",
+    "description": "unknown execution_mode rejected by enum",
+    "spec_refs": ["spec:10", "schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "receipt_version": "csc.receipt.v0.1",
+      "contract_id": "receipt-bad-005",
+      "execution_id": "exec-005",
+      "contract_sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "status": "success",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:05Z",
+      "policy_profile": "dev-readonly",
+      "execution_mode": "yolo"
+    },
+    "valid": false
+  },
+  {
+    "id": "receipt-invalid-bad-stdout-hash-006",
+    "description": "malformed stdout_hash rejected by pattern",
+    "spec_refs": ["spec:10", "schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "receipt_version": "csc.receipt.v0.1",
+      "contract_id": "receipt-bad-006",
+      "execution_id": "exec-006",
+      "contract_sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "status": "success",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:05Z",
+      "policy_profile": "dev-readonly",
+      "stdout_hash": "md5:d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "valid": false
+  },
+  {
+    "id": "receipt-invalid-bad-policy-sha256-007",
+    "description": "malformed policy_sha256 rejected by pattern",
+    "spec_refs": ["spec:10", "schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "receipt_version": "csc.receipt.v0.1",
+      "contract_id": "receipt-bad-007",
+      "execution_id": "exec-007",
+      "contract_sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "status": "success",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:05Z",
+      "policy_profile": "dev-readonly",
+      "policy_sha256": "sha256:a1b2c3d4"
+    },
+    "valid": false
+  },
+  {
+    "id": "receipt-invalid-missing-contract-id-008",
+    "description": "receipt missing required contract_id",
+    "spec_refs": ["spec:10", "schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "receipt_version": "csc.receipt.v0.1",
+      "execution_id": "exec-008",
+      "contract_sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "status": "success",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:05Z",
+      "policy_profile": "dev-readonly"
+    },
+    "valid": false
+  },
+  {
+    "id": "receipt-invalid-unknown-field-009",
+    "description": "unknown field rejected by additionalProperties: false",
+    "spec_refs": ["schema:csc.execution-receipt.v0.1"],
+    "input": {
+      "receipt_version": "csc.receipt.v0.1",
+      "contract_id": "receipt-bad-009",
+      "execution_id": "exec-009",
+      "contract_sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "status": "success",
+      "started_at": "2026-03-20T10:00:00Z",
+      "ended_at": "2026-03-20T10:00:05Z",
+      "policy_profile": "dev-readonly",
+      "totally_bogus_field": true
+    },
+    "valid": false
+  }
+]

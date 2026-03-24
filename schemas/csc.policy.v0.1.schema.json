@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/csc/schemas/csc.policy.v0.1.schema.json",
+  "title": "CSC Policy Profile v0.1",
+  "description": "Schema for CSC policy profile files. Validates policy structure on load. Policy files with duplicate keys MUST be rejected before validation, as defined in docs/canonicalization.md.",
+  "type": "object",
+  "required": [
+    "policy_schema_version",
+    "name",
+    "allow_commands",
+    "allowed_effect_types",
+    "allowed_risk_classes",
+    "max_timeout_sec",
+    "network",
+    "allow_secret_refs",
+    "allowed_cwd_prefixes",
+    "allowed_read_prefixes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "policy_schema_version": {
+      "type": "string",
+      "const": "csc.policy.v0.1",
+      "description": "Policy schema identifier. Must match the version this file was authored against."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable policy profile name. Used as policy_profile in decisions and receipts."
+    },
+    "allow_commands": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Allowlisted executable names. Commands not in this list are denied."
+    },
+    "deny_argv_prefixes": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 },
+        "minItems": 1
+      },
+      "default": [],
+      "description": "Denied argv prefix patterns. Each entry is an array of strings matched against the beginning of argv."
+    },
+    "allowed_effect_types": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["observe", "transform_local", "fetch_external", "mutate_repo", "deploy", "touch_secrets"]
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Allowed proposed effect types. Commands with effect types not in this list are denied."
+    },
+    "manual_approval_for_classified_effect_types": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "default": [],
+      "description": "Classified effect types that require manual approval. These may include extension-defined types not in the core proposed_effect_type enum."
+    },
+    "allowed_risk_classes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["low", "medium", "high", "critical"]
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Allowed contract risk classes. Contracts with risk classes not in this list are denied."
+    },
+    "max_timeout_sec": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Maximum allowed timeout in seconds for any single command."
+    },
+    "network": {
+      "type": "string",
+      "enum": ["deny", "allowlisted", "full"],
+      "description": "Maximum network access mode allowed. Commands requesting higher access are denied."
+    },
+    "allow_secret_refs": {
+      "type": "boolean",
+      "description": "Whether commands may reference secrets. If false, any command with non-empty secret_refs is denied."
+    },
+    "require_write_paths_empty": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, commands with non-empty write_paths are denied. Enforced before write path prefix validation."
+    },
+    "allowed_cwd_prefixes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/absolutePath" },
+      "minItems": 1,
+      "description": "Allowed working directory prefixes. Commands with cwd outside these prefixes are denied."
+    },
+    "allowed_read_prefixes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/absolutePath" },
+      "minItems": 1,
+      "description": "Allowed read path prefixes. Declared read paths outside these prefixes are denied."
+    },
+    "allowed_write_prefixes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/absolutePath" },
+      "default": [],
+      "description": "Allowed write path prefixes. Declared write paths outside these prefixes are denied. Ignored when require_write_paths_empty is true."
+    },
+    "allowed_egress_hosts": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "default": [],
+      "description": "Allowed egress hostnames when network is allowlisted. Used by policy classification in v0.1. OS/runtime enforcement of egress requires hardened mode."
+    }
+  },
+  "$defs": {
+    "absolutePath": {
+      "type": "string",
+      "description": "An absolute filesystem path (POSIX, Windows drive letter, or UNC).",
+      "anyOf": [
+        { "pattern": "^/" },
+        { "pattern": "^[A-Za-z]:[\\\\/]" },
+        { "pattern": "^(?:\\\\\\\\|//)[^\\\\/]+[\\\\/][^\\\\/]+" }
+      ]
+    }
+  }
+}
