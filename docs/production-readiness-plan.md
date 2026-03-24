@@ -1,3 +1,121 @@
+# Stage 3 — Implementation Sequence
+
+## Context
+
+Stage 1a (Protocol Complete), Stage 1b (Hardened Defaults), and Stage 2 (First Hardened Mode) are committed. The runner now has: conformance suite, policy schema with reason codes, resource limits, path enforcement, capped capture, OS-pipe pipelines, adversarial tests, receipt integrity, Ed25519 receipt signing, approval artifacts with replay prevention, Linux sandbox backend (bubblewrap + setpriv + prlimit), hardened CLI with `--mode hardened --sign --sandbox-debug`, Dockerfile, and end-to-end hardened integration tests.
+
+Stage 3 goal: **production candidate** — release infrastructure, security process hardening, CI automation, and at least one real pilot with retrospective.
+
+## Guiding Principles
+
+1. **Do not regress the Stage 2 security boundary.** Kernel-enforced sandbox, signed receipts, approval hash-binding — these are non-negotiable.
+2. **Keep mode-specific claims honest.** Local mode is not hardened. Hardened mode has documented limitations.
+3. **Keep CSC core standalone while preserving PIC-shape compatibility.** No PIC hard dependency. Optional adapter only.
+4. **Stage 3 is both engineering hardening and release/security-process hardening.** Not just more code — also CI gates, vulnerability management, release signing, and external review.
+
+## Execution Order
+
+### Step A: `docs/production-readiness-gate.md` (NEW)
+- The coordinating artifact for Stage 3 — created first, not last
+- Formal checklist: every item must pass before the bounded production claim
+- References all other gate items (threat model, CI, review, pilot retrospective)
+- Living document updated as items are completed
+
+### Step B: `.github/workflows/hardened-tests.yml` (NEW)
+- CI workflow for hardened integration tests — before release automation
+- Builds Docker image, runs tests on Linux (`docker run --network=none`)
+- Required gate: hardened tests must pass for production claim
+- Standard test suite also runs (non-Docker) on the same runner
+- Windows/macOS: standard tests only (hardened tests skip automatically)
+- Must be green before any release workflow is meaningful
+
+### Step C: Release integrity + supply chain
+- Signed releases/tags (GPG or sigstore)
+- Provenance attestations (SLSA — start with provenance discipline, not full SLSA 3)
+- SBOM generation for releases (`cyclonedx-bom` or `syft`)
+- Dependency scanning in CI (`pip-audit` or equivalent)
+- Pinned CI action versions
+- PyPI trusted publishing
+- Signed wheel/sdist release process
+- `.github/workflows/release.yml`
+
+### Step D: Vulnerability management + security process
+- `SECURITY.md` — full vulnerability management process
+- `.github/SECURITY_ADVISORY_TEMPLATE.md` — advisory template
+- `.github/SECURITY_RELEASE_TEMPLATE.md` — security release notes template
+- Severity rubric documented
+- Fix/SLA targets documented
+- Regression tests for every security bug
+
+### Step E: Repo settings + ecosystem hygiene
+- **Files/workflows in git:**
+  - Dependabot configuration (`.github/dependabot.yml`)
+  - CI workflow updates (required check names)
+- **GitHub repo configuration (outside git):**
+  - Branch protection rules
+  - Required CI checks for PRs
+  - Security advisories enabled on the repository
+  - Dependency graph + alerts enabled
+- OpenSSF Best Practices / OSPS baseline passing
+
+### Step F: Documentation alignment
+- `docs/threat-model.md` — populate (exists as placeholder, needs real content: threat classes, mitigations, residual risks)
+- `docs/deployment-modes.md` — update only if Step H ships
+- `README.md` — align with production status (currently bootstrap/minimal; needs to reflect hardened-mode availability and bounded production claim after pilot)
+- Update `docs/production-readiness-gate.md` with final status
+
+### Step G: External review + pilot retrospective
+- At least one independent review: external security review preferred, internal red-team acceptable if documented and credible
+- Findings tracked in issues, fixed or explicitly accepted with rationale
+- At least one real user ran it in a production-like workflow
+- Publish limitations honestly
+- Pilot retrospective written
+
+### Step H: Network enforcement — ONLY IF PILOT DEMANDS IT
+- `csc_runner/network.py` — egress control beyond `--unshare-net`
+- `tests/test_network.py`
+- **Do not add this just because it is "Stage 3."** The strongest current claim is "no network." That is much easier to defend than "network, but allowlisted."
+- **If this ships, define the enforcement boundary tightly first:**
+  - Whether literal IPs are allowed
+  - How DNS is resolved (stub resolver? system resolver? none?)
+  - Whether redirects are followed
+  - Whether the control point is the sandbox, a proxy, or both
+  - What exactly is logged as a violation
+- Without those answers, the feature becomes broader and weaker than intended.
+
+## Stage 3 Exit Criteria
+
+- [ ] `docs/production-readiness-gate.md` exists and all items pass
+- [ ] CI workflow for hardened integration tests (required gate, green)
+- [ ] Signed releases with provenance and SBOM
+- [ ] Security advisory process active
+- [ ] `docs/threat-model.md` populated with real content
+- [ ] `README.md` aligned with production status
+- [ ] Adversarial suite passes
+- [ ] At least one pilot completed with retrospective
+- [ ] At least one independent review completed (external preferred, internal red-team acceptable if credible)
+- [ ] No open high/critical security issues for the supported bounded deployment shape
+- [ ] Bounded production claim: "safe enough for bounded production use under documented constraints" — Linux hardened mode, filesystem-bounded local/CI, no network
+
+## Files Summary
+
+| File | Action |
+|---|---|
+| `docs/production-readiness-gate.md` | New — formal release gate checklist (FIRST) |
+| `.github/workflows/hardened-tests.yml` | New — CI for hardened integration tests |
+| `.github/workflows/release.yml` | New — signed release workflow with provenance + SBOM |
+| `SECURITY.md` | Update with full vulnerability management process |
+| `.github/SECURITY_ADVISORY_TEMPLATE.md` | New — advisory template |
+| `.github/SECURITY_RELEASE_TEMPLATE.md` | New — security release notes template |
+| `.github/dependabot.yml` | New — dependency update automation |
+| `docs/threat-model.md` | Populate — threat classes, mitigations, residual risks |
+| `docs/deployment-modes.md` | Update only if Step H ships |
+| `README.md` | Update — align with production status |
+| `csc_runner/network.py` | New — ONLY if pilot demands egress control |
+| `tests/test_network.py` | New — ONLY if Step H ships |
+
+---
+
 # Stage 2 — Implementation Sequence
 
 ## Context
@@ -131,7 +249,7 @@ Depends on: nothing (standalone, Linux-specific)
 - `--mode local|hardened` flag
 - `--approval PATH` artifact input
 - `--sign` / `--signing-key PATH` options
-- `--sandbox-debug` for printing composed launcher argv (dev/test only)
+- `--sandbox-debug` for printing composed launcher argv (dev/test only). Mirrors real hardened path: runs `verify_hardened_runtime()` first, rejects pipelines as BLOCKED (not SKIP), uses same path/scope checks as executor.
 - Update existing tests for new flags
 
 Depends on: Steps 3, 4, 6
@@ -467,6 +585,8 @@ Official production-candidate target: **filesystem-bounded local/CI execution, n
 
 ## Stage 3 — Production Candidate
 
+**For implementation, the Step A–H execution order at the top of this document is authoritative.**
+
 ### 23. Network enforcement (if needed for next pilot)
 - deny/allowlisted/full becomes real egress control
 - DNS/IP allowlisting
@@ -483,6 +603,14 @@ Official production-candidate target: **filesystem-bounded local/CI execution, n
 - PyPI trusted publishing
 - Signed wheel/sdist release process
 
+### 24b. CI workflows for hardened integration tests
+- `.github/workflows/hardened-tests.yml` — builds Docker image, runs integration tests on Linux
+- Runs on every push/PR to verify hardened-mode claims in CI
+- `docker build -t csc-hardened .` → `docker run --network=none` → `pytest tests/test_integration_hardened.py`
+- Required gate: hardened tests must pass for Stage 3 production claim
+- Also runs standard test suite (`pytest` without Docker) on the same runner
+- Windows/macOS: standard tests only (hardened tests skip automatically)
+
 ### 25. OSS security maturity
 - OpenSSF Best Practices / OSPS baseline passing
 - Branch protection, required CI, dependency updates
@@ -494,25 +622,31 @@ Official production-candidate target: **filesystem-bounded local/CI execution, n
 - Security release notes template
 - Regression tests for every security bug
 
-### 27. Deployment modes documented
-- Local/dev mode: easy to run, limited guarantees, good for learning/demos
-- Hardened mode: containerized, egress-controlled, path-enforced, low-privilege, optional secret broker, optional approval service
-- No one can confuse demo mode with hardened mode
-- Security claims are mode-specific and honest
+### 27. Documentation alignment
+- `docs/production-readiness-gate.md` — formal release gate checklist (referenced by plan and other docs, does not yet exist)
+- `docs/threat-model.md` — populate (exists as placeholder, needs real content)
+- `docs/deployment-modes.md` — update only if Step 23 ships
+- `SECURITY.md` — update with full vulnerability management process
+- `README.md` — align with production status (currently bootstrap/minimal; needs to reflect hardened-mode availability and bounded production claim after pilot)
 
 ### 28. External review + pilot evidence
-- At least one of: external security review, internal red-team, pilot with real team
-- Findings tracked and fixed
+- At least one independent review: external security review preferred, internal red-team acceptable if documented and credible
+- Findings tracked in issues, fixed or explicitly accepted with rationale
 - At least one real user ran it in a production-like workflow
 - Publish limitations honestly
 
 **Stage 3 exit criteria:**
-- Signed releases with provenance and SBOM
-- Security advisory process active
-- Adversarial suite passes
-- At least one pilot completed with retrospective
-- At least one external review completed
-- Can say "safe enough for bounded production use under documented constraints" without hedging — specifically: Linux hardened mode, filesystem-bounded local/CI, no network
+- [ ] `docs/production-readiness-gate.md` exists and all items pass
+- [ ] CI workflow for hardened integration tests (required gate, green)
+- [ ] Signed releases with provenance and SBOM
+- [ ] Security advisory process active
+- [ ] `docs/threat-model.md` populated with real content
+- [ ] `README.md` aligned with production status
+- [ ] Adversarial suite passes
+- [ ] At least one pilot completed with retrospective
+- [ ] At least one independent review completed (external preferred, internal red-team acceptable if credible)
+- [ ] No open high/critical security issues for the supported bounded deployment shape
+- [ ] Bounded production claim: "safe enough for bounded production use under documented constraints" — Linux hardened mode, filesystem-bounded local/CI, no network
 
 ## Production Readiness Gate
 
@@ -522,9 +656,9 @@ Official production-candidate target: **filesystem-bounded local/CI execution, n
 
 **Bounded claim text (draft):** "CSC hardened mode is safe enough for bounded production use in Linux-based, filesystem-bounded local/CI execution workflows without network access, under the documented trust assumptions and deployment constraints."
 
-- ✅ Stage 1a exit complete
-- ✅ Stage 1b exit complete
-- [ ] Stage 2 exit complete
+- ✅ Stage 1a exit complete (committed: `800dc8b`)
+- ✅ Stage 1b exit complete (committed: `f1b699f`)
+- ✅ Stage 2 implementation complete (committed: `3e8d751`) — bounded pilot claim pending Linux CI confirmation
 - [ ] Stage 3 exit complete
 - [ ] Pilot retrospective written
 - [ ] Threat model populated
@@ -538,7 +672,7 @@ Official production-candidate target: **filesystem-bounded local/CI execution, n
 - [ ] Support matrix current
 - [ ] Deployment modes documentation current
 - [ ] Canonicalization spec current and policy-hash rules unchanged or explicitly versioned
-- [ ] First bounded claim scoped to: Linux hardened mode only, filesystem-bounded local/CI, no network
+- [ ] Bounded production claim: "safe enough for bounded production use under documented constraints" — Linux hardened mode, filesystem-bounded local/CI, no network
 
 ## PIC Ecosystem Architecture (long-term)
 
@@ -620,14 +754,18 @@ Official production-candidate target: **filesystem-bounded local/CI execution, n
 
 | File | Action |
 |------|--------|
-| `csc_runner/network.py` | New (if next pilot needs) — egress control |
-| `tests/test_network.py` | New — egress enforcement tests |
-| `SECURITY.md` | Update with full vulnerability management process |
-| `docs/threat-model.md` | Populate — threat classes, mitigations, residual risks |
-| `docs/production-readiness-gate.md` | New — formal release gate checklist |
-| `docs/deployment-modes.md` | Update with network enforcement, secret broker docs |
+| `docs/production-readiness-gate.md` | New — formal release gate checklist (FIRST) |
+| `.github/workflows/hardened-tests.yml` | New — CI for hardened integration tests |
 | `.github/workflows/release.yml` | New — signed release workflow with provenance + SBOM |
+| `SECURITY.md` | Update with full vulnerability management process |
 | `.github/SECURITY_ADVISORY_TEMPLATE.md` | New — advisory template |
+| `.github/SECURITY_RELEASE_TEMPLATE.md` | New — security release notes template |
+| `.github/dependabot.yml` | New — dependency update automation |
+| `docs/threat-model.md` | Populate — real content (exists as placeholder) |
+| `README.md` | Update — align with production status |
+| `docs/deployment-modes.md` | Update only if Step H ships |
+| `csc_runner/network.py` | New — ONLY if pilot demands egress control |
+| `tests/test_network.py` | New — ONLY if Step H ships |
 
 ## Stage 1a — COMPLETE (committed)
 
@@ -639,19 +777,21 @@ Official production-candidate target: **filesystem-bounded local/CI execution, n
 
 245 tests, lint clean. All failure modes produce receipts. Executor resolves real paths and enforces filesystem boundaries. Resource exhaustion controls enforced. Receipts are hash-bound and deterministic. Adversarial test suite passes.
 
-## Current Task: Stage 2 Implementation
+## Stage 2 — COMPLETE (committed)
 
-### Progress (reordered: code-first, docs interleaved)
+Commit: `3e8d751 Stage 2: First Hardened Mode — approval, signing, sandbox, integration tests, docs`
+
+### Progress
 - [x] Step 1: `schemas/csc.approval.v0.1.schema.json` ✅
 - [x] Step 3: `csc_runner/approval.py` + `tests/test_approval.py` ✅ (22 tests)
 - [x] Step 4: `csc_runner/signing.py` + `tests/test_signing.py` ✅ (27 tests, standalone `cryptography`)
-- [ ] Step 6: `csc_runner/sandbox.py` + `tests/test_sandbox.py` — NEXT (bubblewrap + setpriv + prlimit launcher)
-- [ ] Step 6b: seccomp profile (optional, can defer to post-pilot)
-- [ ] Step 7: Wire into `executor.py` + `cli.py` (approval→hardened launcher→execute→sign)
-- [ ] Step 10: `Dockerfile` + `tests/test_integration_hardened.py` (bubblewrap + no network)
-- [ ] Docs: `deployment-modes.md`, `key-management.md`, `policy-packs.md` (interleaved)
-- [ ] Step 8: `csc_runner/secrets.py` — DEFERRED unless pilot forces it
-- [ ] Step 11: Pilot success criteria verification
+- [x] Step 6: `csc_runner/sandbox.py` + `tests/test_sandbox.py` ✅ (bubblewrap + setpriv + prlimit launcher)
+- [x] Step 6b: seccomp profile — DEFERRED to post-pilot
+- [x] Step 7: `csc_runner/executor.py` + `csc_runner/cli.py` ✅ (approval→hardened launcher→execute→sign)
+- [x] Step 10: `Dockerfile` + `tests/test_integration_hardened.py` ✅ (19 integration tests)
+- [x] Docs: `deployment-modes.md` ✅, `key-management.md` ✅, `policy-packs.md` ✅
+- [x] Step 8: `csc_runner/secrets.py` — DEFERRED (not needed for pilot)
+- [ ] Step 11: Pilot success criteria verification — pending CI validation on Linux
 
 ### Working Rules
 - File-by-file approval: show full drop-in, wait for "APPROVED"
