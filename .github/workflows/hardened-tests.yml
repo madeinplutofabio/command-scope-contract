@@ -62,6 +62,31 @@ jobs:
           docker run --rm --entrypoint setpriv csc-hardened --version
           docker run --rm --entrypoint prlimit csc-hardened --version
 
+      - name: Debug - dump receipt error from hardened run
+        run: |
+          docker run \
+            --rm \
+            --privileged \
+            --entrypoint python \
+            -v ${{ github.workspace }}:/repo:ro \
+            -w /app \
+            csc-hardened \
+            -c "
+          import json
+          from csc_runner.executor import run_contract
+          from csc_runner.models import Actor, Command, CommandContract, ExecSpec
+          from csc_runner.sandbox import SandboxConfig
+          from csc_runner.signing import generate_test_keypair
+          priv, pub = generate_test_keypair()
+          actor = Actor(agent_id='dbg', session_id='dbg', initiating_user='dbg', delegation_scope='test')
+          cmd = Command(id='cmd_1', exec=ExecSpec(argv=['/bin/ls', '/workspace']), cwd='/workspace', read_paths=['/workspace/**'], write_paths=[], network='deny', env_allow=[], secret_refs=[], timeout_sec=30, proposed_effect_type='observe')
+          contract = CommandContract(version='csc.v0.1', contract_id='dbg-001', intent='debug', actor=actor, commands=[cmd], risk_class='low', approval_mode='policy_only', justification='debug')
+          policy = {'name': 'dbg', 'policy_schema_version': 'csc.policy.v0.1', 'allowed_cwd_prefixes': ['/workspace'], 'allowed_read_prefixes': ['/workspace'], 'allowed_write_prefixes': ['/workspace']}
+          config = SandboxConfig(require_network_disabled=False)
+          receipt = run_contract(contract, 'dbg', policy, mode='hardened', sandbox_config=config, private_key_bytes=priv, signing_key_id='dbg-key')
+          print(json.dumps({k: receipt[k] for k in ['status', 'error', 'exit_code'] if k in receipt}, indent=2))
+          "
+
       - name: Run hardened integration tests
         run: |
           docker run \
