@@ -47,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added — Stage 3 (Production Candidate)
 
 - Production readiness gate (`docs/production-readiness-gate.md`): formal checklist for bounded production claim
-- CI workflow for hardened integration tests (`.github/workflows/hardened-tests.yml`): Docker build + `--network=none`
+- CI workflow for hardened integration tests (`.github/workflows/hardened-tests.yml`): Docker build, privileged container, bwrap `--unshare-net` for network isolation
 - Release workflow (`.github/workflows/release.yml`): sigstore signing, SBOM generation, PyPI trusted publishing
 - Security policy (`SECURITY.md`): severity rubric, SLA targets, disclosure process
 - Security advisory template (`.github/SECURITY_ADVISORY_TEMPLATE.md`)

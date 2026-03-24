@@ -25,7 +25,7 @@ This does not imply general-purpose production readiness outside those constrain
 
 ### Engineering
 
-- [ ] **Hardened integration tests pass on Linux in CI.** `.github/workflows/hardened-tests.yml` builds Docker image, runs `tests/test_integration_hardened.py` with `--network=none`. Must be green on every push/PR.
+- [ ] **Hardened integration tests pass on Linux in CI.** `.github/workflows/hardened-tests.yml` builds Docker image, runs `tests/test_integration_hardened.py` in a privileged container. Network isolation is tested by bwrap `--unshare-net` inside the sandbox. Must be green on every push/PR.
 - [ ] **Standard test suite passes on the supported platform matrix.** All local-mode tests pass across supported Python versions and operating systems.
 - [ ] **Adversarial test suite passes.** `tests/test_adversarial.py` covers shell escapes, path tricks, env leakage, timeout abuse, resource exhaustion, Unicode edge cases.
 - [ ] **No open high/critical security issues** for the supported bounded deployment shape (Linux hardened mode, filesystem-bounded, no network).

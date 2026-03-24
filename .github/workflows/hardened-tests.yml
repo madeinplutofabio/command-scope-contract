@@ -12,7 +12,10 @@ permissions:
 # This workflow runs:
 # 1. Standard tests on Linux (ubuntu-latest) across Python versions.
 #    Full platform matrix (Windows, macOS) belongs in ci.yml.
-# 2. Hardened integration tests inside the Docker container with --network=none.
+# 2. Hardened integration tests inside the Docker container.
+#    The outer container is privileged so bwrap can create namespaces.
+#    Network isolation is enforced and tested by bwrap --unshare-net
+#    inside the sandbox, not by Docker --network=none.
 #
 # Action versions are not yet pinned to SHA — that is a Stage 3 Step C task.
 
@@ -59,34 +62,9 @@ jobs:
           docker run --rm --entrypoint setpriv csc-hardened --version
           docker run --rm --entrypoint prlimit csc-hardened --version
 
-      - name: Debug - test bwrap directly
-        run: |
-          docker run \
-            --network=none \
-            --rm \
-            --privileged \
-            --entrypoint python \
-            -v ${{ github.workspace }}:/repo:ro \
-            -w /app \
-            csc-hardened \
-            -c "
-          from csc_runner.sandbox import SandboxConfig, build_hardened_command, verify_hardened_runtime
-          config = SandboxConfig(require_network_disabled=False)
-          verify_hardened_runtime(config)
-          print('Runtime verification passed')
-          argv = build_hardened_command(['/bin/ls', '/workspace'], cwd='/workspace', read_bind_prefixes=[], write_bind_prefixes=[], config=config)
-          print('Launcher argv:', ' '.join(argv))
-          import subprocess
-          result = subprocess.run(argv, capture_output=True, text=True)
-          print('STDOUT:', result.stdout[:500])
-          print('STDERR:', result.stderr[:500])
-          print('Return code:', result.returncode)
-          "
-
       - name: Run hardened integration tests
         run: |
           docker run \
-            --network=none \
             --rm \
             --privileged \
             --entrypoint python \
@@ -97,6 +75,13 @@ jobs:
         timeout-minutes: 10
         # --privileged is required because bwrap needs to create
         # namespaces (user, mount, pid, net) inside the container.
-        # GitHub Actions' default Docker seccomp profile restricts
-        # these operations. The security boundary being tested is
-        # bwrap itself, not the CI host.
+        #
+        # --network=none is NOT used here because it conflicts with
+        # bwrap --unshare-net: Docker strips the network capabilities
+        # bwrap needs to configure loopback in its own namespace
+        # (error: "loopback: Failed RTM_NEWADDR: Operation not permitted").
+        #
+        # Network isolation is tested by bwrap --unshare-net itself —
+        # the integration test verifies only loopback exists inside
+        # the sandbox namespace. The outer --network=none is a
+        # deployment recommendation, not a CI testing requirement.

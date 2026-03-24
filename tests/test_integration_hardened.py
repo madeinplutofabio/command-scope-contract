@@ -115,7 +115,7 @@ def keypair():
 def sandbox_config():
     """Sandbox config without privilege drop (non-root container user)."""
     return SandboxConfig(
-        require_network_disabled=False,  # CI may not have --network=none
+        require_network_disabled=False,  # CI does not use outer --network=none; bwrap --unshare-net is the boundary
     )
 
 
