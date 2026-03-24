@@ -59,6 +59,30 @@ jobs:
           docker run --rm --entrypoint setpriv csc-hardened --version
           docker run --rm --entrypoint prlimit csc-hardened --version
 
+      - name: Debug - test bwrap directly
+        run: |
+          docker run \
+            --network=none \
+            --rm \
+            --privileged \
+            --entrypoint python \
+            -v ${{ github.workspace }}:/repo:ro \
+            -w /app \
+            csc-hardened \
+            -c "
+          from csc_runner.sandbox import SandboxConfig, build_hardened_command, verify_hardened_runtime
+          config = SandboxConfig(require_network_disabled=False)
+          verify_hardened_runtime(config)
+          print('Runtime verification passed')
+          argv = build_hardened_command(['/bin/ls', '/workspace'], cwd='/workspace', read_bind_prefixes=[], write_bind_prefixes=[], config=config)
+          print('Launcher argv:', ' '.join(argv))
+          import subprocess
+          result = subprocess.run(argv, capture_output=True, text=True)
+          print('STDOUT:', result.stdout[:500])
+          print('STDERR:', result.stderr[:500])
+          print('Return code:', result.returncode)
+          "
+
       - name: Run hardened integration tests
         run: |
           docker run \
