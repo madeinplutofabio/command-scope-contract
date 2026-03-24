@@ -13,9 +13,13 @@ permissions:
 # 1. Standard tests on Linux (ubuntu-latest) across Python versions.
 #    Full platform matrix (Windows, macOS) belongs in ci.yml.
 # 2. Hardened integration tests inside the Docker container.
-#    The outer container is privileged so bwrap can create namespaces.
+#    The outer container runs as root with --privileged and AppArmor
+#    disabled so bwrap can create namespaces and configure loopback.
+#    Running as root is a CI-only requirement — bwrap --unshare-net
+#    needs CAP_NET_ADMIN to set up loopback in its network namespace.
+#    The product Dockerfile runs as non-root (csc-runner).
 #    Network isolation is enforced and tested by bwrap --unshare-net
-#    inside the sandbox, not by Docker --network=none.
+#    inside the sandbox — the primary hardened-mode boundary.
 #
 # Action versions are not yet pinned to SHA — that is a Stage 3 Step C task.
 
@@ -62,51 +66,16 @@ jobs:
           docker run --rm --entrypoint setpriv csc-hardened --version
           docker run --rm --entrypoint prlimit csc-hardened --version
 
-      - name: Debug - dump receipt error from hardened run
-        run: |
-          docker run \
-            --rm \
-            --privileged \
-            --entrypoint python \
-            -v ${{ github.workspace }}:/repo:ro \
-            -w /app \
-            csc-hardened \
-            -c "
-          import json
-          from csc_runner.executor import run_contract
-          from csc_runner.models import Actor, Command, CommandContract, ExecSpec
-          from csc_runner.sandbox import SandboxConfig
-          from csc_runner.signing import generate_test_keypair
-          priv, pub = generate_test_keypair()
-          actor = Actor(agent_id='dbg', session_id='dbg', initiating_user='dbg', delegation_scope='test')
-          cmd = Command(id='cmd_1', exec=ExecSpec(argv=['/bin/ls', '/workspace']), cwd='/workspace', read_paths=['/workspace/**'], write_paths=[], network='deny', env_allow=[], secret_refs=[], timeout_sec=30, proposed_effect_type='observe')
-          contract = CommandContract(version='csc.v0.1', contract_id='dbg-001', intent='debug', actor=actor, commands=[cmd], risk_class='low', approval_mode='policy_only', justification='debug')
-          policy = {'name': 'dbg', 'policy_schema_version': 'csc.policy.v0.1', 'allowed_cwd_prefixes': ['/workspace'], 'allowed_read_prefixes': ['/workspace'], 'allowed_write_prefixes': ['/workspace']}
-          config = SandboxConfig(require_network_disabled=False)
-          receipt = run_contract(contract, 'dbg', policy, mode='hardened', sandbox_config=config, private_key_bytes=priv, signing_key_id='dbg-key')
-          print(json.dumps({k: receipt[k] for k in ['status', 'error', 'exit_code'] if k in receipt}, indent=2))
-          "
-
       - name: Run hardened integration tests
         run: |
           docker run \
             --rm \
             --privileged \
+            --security-opt apparmor=unconfined \
+            --user 0 \
             --entrypoint python \
             -v ${{ github.workspace }}:/repo:ro \
             -w /app \
             csc-hardened \
             -m pytest /repo/tests/test_integration_hardened.py -v --tb=short
         timeout-minutes: 10
-        # --privileged is required because bwrap needs to create
-        # namespaces (user, mount, pid, net) inside the container.
-        #
-        # --network=none is NOT used here because it conflicts with
-        # bwrap --unshare-net: Docker strips the network capabilities
-        # bwrap needs to configure loopback in its own namespace
-        # (error: "loopback: Failed RTM_NEWADDR: Operation not permitted").
-        #
-        # Network isolation is tested by bwrap --unshare-net itself —
-        # the integration test verifies only loopback exists inside
-        # the sandbox namespace. The outer --network=none is a
-        # deployment recommendation, not a CI testing requirement.
