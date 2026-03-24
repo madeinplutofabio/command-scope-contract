@@ -35,6 +35,6 @@ coverage.xml
 .DS_Store
 Thumbs.db
 
-# CSC runtime
-out/
-receipts/
+# CSC runtime output (root-level only, not test fixtures)
+/out/
+/receipts/
