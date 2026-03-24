@@ -91,7 +91,7 @@ jobs:
         run: |
           sbom-env/bin/pip install cyclonedx-bom
           sbom-env/bin/cyclonedx-py environment \
-            --output sbom.json \
+            --output-file sbom.json \
             --output-format json
 
       - name: Upload SBOM
@@ -135,7 +135,7 @@ jobs:
           path: dist/
 
       - name: Sign with sigstore
-        uses: sigstore/gh-action-sigstore-python@v3
+        uses: sigstore/gh-action-sigstore-python@v3.2.0
         with:
           inputs: ./dist/*
 
