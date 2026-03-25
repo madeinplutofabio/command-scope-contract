@@ -128,9 +128,7 @@ def load_policy(path: str) -> dict:
         raise PolicyError(f"failed to read policy file: {exc}") from exc
 
     if len(raw) > MAX_POLICY_SIZE_BYTES:
-        raise PolicyError(
-            f"policy file is {len(raw)} bytes (max {MAX_POLICY_SIZE_BYTES})"
-        )
+        raise PolicyError(f"policy file is {len(raw)} bytes (max {MAX_POLICY_SIZE_BYTES})")
 
     try:
         data = yaml.load(raw.decode("utf-8"), Loader=_UniqueKeyLoader)
