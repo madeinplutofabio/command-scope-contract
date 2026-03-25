@@ -1,8 +1,24 @@
-[![CI](https://github.com/madeinplutofabio/command-scope-contract/actions/workflows/ci.yml/badge.svg)](https://github.com/madeinplutofabio/command-scope-contract/actions/workflows/ci.yml)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
+<p align="center">
+  <img src="docs/assets/logo.png" alt="CSC — Command Scope Contract" width="140">
+</p>
 
-# CSC — Command Scope Contract
+<h1 align="center">CSC — Command Scope Contract</h1>
+
+<p align="center">
+  Bounded shell and CLI execution for AI agents.<br>
+  Structured contracts. Policy-gated execution. Signed receipts.
+</p>
+
+<p align="center">
+  <a href="https://github.com/madeinplutofabio/command-scope-contract/actions/workflows/ci.yml"><img src="https://github.com/madeinplutofabio/command-scope-contract/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/madeinplutofabio/command-scope-contract/actions/workflows/hardened-tests.yml"><img src="https://github.com/madeinplutofabio/command-scope-contract/actions/workflows/hardened-tests.yml/badge.svg" alt="Hardened Tests"></a>
+  <a href="https://pypi.org/project/csc-runner/"><img src="https://img.shields.io/pypi/v/csc-runner.svg" alt="PyPI"></a>
+  <a href="https://pypi.org/project/csc-runner/"><img src="https://img.shields.io/pypi/dm/csc-runner.svg" alt="Downloads"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green.svg" alt="License"></a>
+</p>
+
+---
 
 CSC is a protocol for bounded shell and CLI execution by AI agents.
 
@@ -40,14 +56,14 @@ agent -> command contract -> policy gate -> constrained executor -> execution re
 
 ## Status
 
-**v0.1 — hardened mode available**
+**v0.5.1 — bounded production-ready**
 
 The reference runner implements the full CSC v0.1 protocol:
 
 - **Stage 1a** — Protocol complete: spec frozen, conformance suite, policy schema with structured reason codes, receipt field semantics
 - **Stage 1b** — Hardened defaults: fail-closed executor, path enforcement, resource limits, capped output capture, adversarial test suite
 - **Stage 2** — First hardened mode: Linux sandbox (bubblewrap + setpriv + prlimit), Ed25519 receipt signing, approval artifacts with replay prevention, end-to-end integration tests
-- **Stage 3** — Production candidate (in progress): release infrastructure, CI gates, security process, pilot validation
+- **Stage 3** — Production candidate: release infrastructure, CI gates, security process, pilot validation, internal red-team review
 
 ### Bounded production claim
 
@@ -86,7 +102,7 @@ CSC does not attempt to replace:
 - semantic validation of task correctness
 - prompt injection defenses at every layer
 
-CSC is an execution-boundary protocol.
+CSC is an execution-boundary protocol. For a full statement of what CSC contributes and what it reuses, see [RFC-0003](rfcs/0003-csc-positioning.md).
 
 ## Core objects
 
@@ -108,6 +124,10 @@ CSC is an execution-boundary protocol.
 ## Quickstart
 
 ```bash
+# Install from PyPI
+pip install csc-runner
+
+# Or install from source with dev dependencies
 pip install -e ".[dev]"
 
 # Check a contract against a policy (no execution)
@@ -136,6 +156,14 @@ csc verify-receipt receipt.json --public-key pub.pem --key-id prod-01
 - [Policy Packs](docs/policy-packs.md) — organizational policy conventions
 - [Reason Codes](docs/reason-codes.md) — structured decision reason registry
 - [Security Policy](SECURITY.md) — vulnerability reporting
+- [Internal Red-Team Review](docs/internal-red-team-review.md) — adversarial review findings
+- [Pilot Retrospective](docs/pilot-retrospective.md) — pilot execution and lessons learned
+
+## RFCs
+
+- [RFC-0001](rfcs/0001-csc-core.md) — CSC core protocol
+- [RFC-0002](rfcs/0002-pic-alignment.md) — PIC alignment and mapping
+- [RFC-0003](rfcs/0003-csc-positioning.md) — CSC positioning, contribution, and boundaries
 
 ## Contributing
 

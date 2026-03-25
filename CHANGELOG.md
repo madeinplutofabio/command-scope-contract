@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-03-25
+
+### Fixed
+
+- Null bytes in any argv element now rejected in hardened mode advisory check (RT-015)
+- `load_policy()` now enforces `MAX_POLICY_SIZE_BYTES` before YAML parsing (RT-018)
+- `csc_runner/policy.py` formatting corrected for ruff
+- Release workflow: corrected `cyclonedx-py` CLI flags and sigstore action version
+
+### Changed
+
+- GitHub Actions bumped: checkout v6, download-artifact v8, setup-python v6, upload-artifact v7
+- Production readiness gate: review wording relaxed to accept documented internal red-team
+
+### Added
+
+- Internal red-team review (`docs/internal-red-team-review.md`) — 18 findings
+- Pilot retrospective (`docs/pilot-retrospective.md`)
+
 ## [0.5.0] - 2026-03-24
 
 ### Added — Stage 1a (Protocol Complete)

@@ -30,7 +30,17 @@ rfcs:
     status: draft
     path: rfcs/0002-pic-alignment.md
     authors:
-      - Fabio
+      - Fabio Marcello Salvadori
     created: 2026-03-20
+    sha256: null
+    doi: null
+
+  - id: RFC-0003
+    title: CSC Positioning, Contribution, and Boundaries
+    status: accepted
+    path: rfcs/0003-csc-positioning.md
+    authors:
+      - Fabio Marcello Salvadori
+    created: 2026-03-25
     sha256: null
     doi: null
