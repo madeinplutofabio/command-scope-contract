@@ -1,3 +1,40 @@
+# Current Task: bwrap runtime capability smoke test
+
+## Context
+
+CI revealed bwrap fails on AppArmor-restricted Ubuntu with `RTM_NEWADDR: Operation not permitted`. Error surfaces as generic command failure — no actionable guidance for operators.
+
+## Change
+
+Add `_verify_bwrap_capabilities()` to `csc_runner/sandbox.py`. Verifies runtime supports the hardened namespace boundary, not just binary presence.
+
+### `csc_runner/sandbox.py`
+
+- Add `import subprocess` at top
+- New function `_verify_bwrap_capabilities()`:
+  - Runs representative probe: `bwrap --unshare-net --proc /proc --dev /dev --ro-bind /usr /usr --ro-bind /bin /bin -- /bin/true`
+  - Timeout: 5 seconds
+  - On failure: raises `SandboxError` with diagnostic message:
+    - "hardened mode runtime check failed: bubblewrap could not create the required namespace sandbox"
+    - Common causes: AppArmor-restricted Ubuntu, container runtime confinement, disabled user namespaces, restrictive seccomp
+    - Points to `docs/deployment-modes.md`
+    - Includes bwrap stderr for debugging
+- Called from `verify_hardened_runtime()` after `verify_tools()`, before network check
+- Order: config → platform → tools → bwrap capability → optional network
+
+### `tests/test_sandbox.py`
+
+- `test_bwrap_smoke_success` — monkeypatch `csc_runner.sandbox.subprocess.run` to return rc=0, verify no error
+- `test_bwrap_smoke_failure_gives_clear_error` — monkeypatch to return rc=1 with stderr, assert SandboxError contains "runtime check failed" and "deployment-modes"
+- Not brittle on exact argv — test the error behavior, not the probe command
+
+### Verification
+
+- `python -m pytest tests/test_sandbox.py -v`
+- `ruff check csc_runner/sandbox.py tests/test_sandbox.py`
+
+---
+
 # Stage 3 — Implementation Sequence
 
 ## Context
@@ -82,6 +119,26 @@ Stage 3 goal: **production candidate** — release infrastructure, security proc
   - Whether the control point is the sandbox, a proxy, or both
   - What exactly is logged as a violation
 - Without those answers, the feature becomes broader and weaker than intended.
+
+## CI Fix: bwrap loopback failure
+
+### Problem
+bwrap 0.8.0 `--unshare-net` fails inside Docker containers (even `--privileged`) with:
+`bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`
+bwrap tries to configure loopback in its new network namespace, which requires capabilities that don't propagate into nested namespaces on GH Actions runners.
+
+### Fix
+1. `csc_runner/sandbox.py`: Add `unshare_net: bool = True` to `SandboxConfig`. When `False`, skip `--unshare-net` in bwrap argv. Default `True` (production unchanged).
+2. `tests/test_integration_hardened.py`: Use `SandboxConfig(require_network_disabled=False, unshare_net=False)`. Network isolation in CI provided by outer Docker container.
+3. `.github/workflows/hardened-tests.yml`: Restore `--network=none` on Docker run (outer container enforces). Keep `--privileged`. Remove debug steps.
+4. `tests/test_sandbox.py`: Add test for `unshare_net=False` argv.
+5. Network test: verify outer container has no connectivity when `unshare_net=False`.
+
+### Files
+- `csc_runner/sandbox.py`
+- `tests/test_integration_hardened.py`
+- `tests/test_sandbox.py`
+- `.github/workflows/hardened-tests.yml`
 
 ## Stage 3 Exit Criteria
 

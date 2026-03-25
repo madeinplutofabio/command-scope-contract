@@ -478,10 +478,16 @@ def check_command_allowed(argv: list[str], config: SandboxConfig) -> None:
     - Wrapper commands (exact match)
     - Custom blocked_commands (exact match)
 
+    Also rejects null bytes in any argv element — a classic injection
+    technique that can confuse basename extraction and downstream tools.
+
     Raises SandboxError if the command is blocked.
     """
     if not argv:
         raise SandboxError("empty argv")
+
+    if any("\x00" in arg for arg in argv):
+        raise SandboxError("argv contains null byte — rejected in hardened mode")
 
     command = os.path.basename(argv[0]).lower()
 

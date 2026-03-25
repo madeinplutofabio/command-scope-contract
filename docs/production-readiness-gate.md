@@ -66,7 +66,7 @@ This does not imply general-purpose production readiness outside those constrain
 
 ### Review and Pilot
 
-- [ ] **At least one independent review completed.** External security review preferred. Internal red-team acceptable if documented and credible.
+- [ ] **At least one structured review completed.** Independent external or peer review preferred; documented internal red-team acceptable for Stage 3.
 - [ ] **Review findings closed** or explicitly accepted with rationale.
 - [ ] **At least one pilot completed** with a real user in a production-like workflow.
 - [ ] **Pilot retrospective written** and published.

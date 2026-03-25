@@ -141,3 +141,13 @@ def test_load_rejects_relative_path_prefix(tmp_path):
     )
     with pytest.raises(PolicyError, match="schema validation failed"):
         load_policy(str(bad))
+
+
+def test_oversized_policy_rejected(tmp_path):
+    from csc_runner.limits import MAX_POLICY_SIZE_BYTES
+
+    oversized = tmp_path / "huge.yaml"
+    oversized.write_bytes(b"x" * (MAX_POLICY_SIZE_BYTES + 1))
+
+    with pytest.raises(PolicyError, match="bytes"):
+        load_policy(str(oversized))

@@ -432,6 +432,14 @@ class TestCheckCommandAllowed:
         with pytest.raises(SandboxError, match="blocked"):
             check_command_allowed(["BASH"], _config())
 
+    def test_null_byte_in_command_rejected(self):
+        with pytest.raises(SandboxError, match="null byte"):
+            check_command_allowed(["bash\x00ignored"], _config())
+
+    def test_null_byte_in_later_argv_rejected(self):
+        with pytest.raises(SandboxError, match="null byte"):
+            check_command_allowed(["git", "status\x00malicious"], _config())
+
 
 # ---------------------------------------------------------------------------
 # Launcher construction

@@ -8,6 +8,7 @@ import yaml
 from jsonschema import Draft202012Validator
 from jsonschema import ValidationError as JsonSchemaValidationError
 
+from csc_runner.limits import MAX_POLICY_SIZE_BYTES
 from csc_runner.models import CommandContract
 from csc_runner.utils import hash_contract
 
@@ -117,17 +118,24 @@ def _iter_argv_vectors(command) -> list[list[str]]:
 def load_policy(path: str) -> dict:
     """Load and validate a policy file against the policy schema.
 
-    Raises PolicyError if the file cannot be read, contains invalid YAML,
-    has duplicate keys, is not a mapping, or does not conform to the
-    policy schema.
+    Raises PolicyError if the file is oversized, cannot be read, contains
+    invalid YAML, has duplicate keys, is not a mapping, or does not conform
+    to the policy schema.
     """
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = yaml.load(f, Loader=_UniqueKeyLoader)
-    except yaml.YAMLError as exc:
-        raise PolicyError(f"invalid YAML: {exc}") from exc
+        raw = Path(path).read_bytes()
     except OSError as exc:
         raise PolicyError(f"failed to read policy file: {exc}") from exc
+
+    if len(raw) > MAX_POLICY_SIZE_BYTES:
+        raise PolicyError(
+            f"policy file is {len(raw)} bytes (max {MAX_POLICY_SIZE_BYTES})"
+        )
+
+    try:
+        data = yaml.load(raw.decode("utf-8"), Loader=_UniqueKeyLoader)
+    except yaml.YAMLError as exc:
+        raise PolicyError(f"invalid YAML: {exc}") from exc
 
     if not isinstance(data, dict):
         raise PolicyError("policy file must contain a YAML mapping")
