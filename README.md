@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/logo.png" alt="CSC — Command Scope Contract" width="140">
+  <img src="https://raw.githubusercontent.com/madeinplutofabio/command-scope-contract/main/docs/assets/logo.png" alt="CSC — Command Scope Contract" width="140">
 </p>
 
 <h1 align="center">CSC — Command Scope Contract</h1>
