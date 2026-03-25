@@ -64,7 +64,11 @@ jobs:
           pip install pip-audit
 
       - name: Run pip-audit
-        run: pip-audit
+        run: |
+          # Skip CVEs with no fix available upstream.
+          # CVE-2026-4539: pygments 2.19.2 — no patched version released yet.
+          # Remove --ignore-vuln flags as upstream fixes become available.
+          pip-audit --ignore-vuln CVE-2026-4539
 
   sbom:
     name: Generate SBOM
