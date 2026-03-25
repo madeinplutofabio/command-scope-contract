@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "csc-runner"
-version = "0.5.1"
+version = "0.5.2"
 description = "Reference runner for Command Scope Contract"
 readme = "README.md"
 license = "Apache-2.0"

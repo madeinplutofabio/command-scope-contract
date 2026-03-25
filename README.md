@@ -56,7 +56,7 @@ agent -> command contract -> policy gate -> constrained executor -> execution re
 
 ## Status
 
-**v0.5.1 — bounded production-ready**
+**v0.5.2 — bounded production-ready**
 
 The reference runner implements the full CSC v0.1 protocol:
 
